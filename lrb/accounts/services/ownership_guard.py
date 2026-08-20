@@ -1,6 +1,10 @@
-from lrb.accounts.models import User
+from __future__ import annotations
 from lrb.accounts.selectors import count_active_superusers
 from lrb.core.exceptions import ApplicationError, ErrorCode
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lrb.accounts.models import User
 
 
 def assert_not_last_owner(*, user: User, company_id:str, action: str="modify")-> None:

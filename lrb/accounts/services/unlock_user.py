@@ -1,18 +1,22 @@
+from __future__ import annotations
 from django.db import transaction
-from lrb.accounts.models import User
-from lrb.accounts.selectors import get_user
+from lrb.accounts.selectors.get_user import get_user
 from lrb.core.exceptions import ApplicationError, ErrorCode
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lrb.accounts.models import User
+
 
 @transaction.atomic
 def unlock_user(*, user_id: str) -> User:
     user = get_user(user_id=user_id)
     if not user:
-            raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
+        raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
     user.locked_until = None
     user.failed_login_attempts = 0
     user.save(update_fields=["locked_until", "failed_login_attempts"])
     return user
-
 
 
 # 1. Purpose — Why does this exist?

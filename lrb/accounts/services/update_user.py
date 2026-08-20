@@ -1,8 +1,8 @@
+from __future__ import annotations
 from typing import Optional
 from django.db import IntegrityError, transaction
 from django.core.exceptions import ValidationError
-from lrb.accounts.models import User
-from lrb.accounts.selectors import get_user
+from lrb.accounts.selectors.get_user import get_user
 from lrb.company.models.company import Company
 from lrb.core.exceptions import (
     AppValidationError,
@@ -12,6 +12,10 @@ from lrb.core.exceptions import (
 )
 from lrb.core.validators.email import validate_email
 from lrb.core.validators.phone import validate_phone_number
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lrb.accounts.models import User
 
 
 @transaction.atomic
@@ -56,9 +60,6 @@ def update_user(
         raise AppValidationError(message, field=field)
     except IntegrityError:
         raise BusinessRuleViolationError(code=ErrorCode.USER_ALREADY_EXISTS)
-
-
-
 
 
 # update_user — Full Walkthrough

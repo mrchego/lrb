@@ -1,5 +1,5 @@
+from __future__ import annotations
 from typing import Optional
-
 from django.db import transaction, IntegrityError
 from django.core.exceptions import ValidationError
 from lrb.accounts.models import User

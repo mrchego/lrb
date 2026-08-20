@@ -1,8 +1,12 @@
+from __future__ import annotations
 from django.db import transaction
-from lrb.accounts.models import User
-from lrb.accounts.selectors import get_user
+from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.services.ownership_guard import assert_not_last_owner
 from lrb.core.exceptions import ApplicationError, ErrorCode
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lrb.accounts.models import User
 
 
 @transaction.atomic
