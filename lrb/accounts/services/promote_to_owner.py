@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 @transaction.atomic
 def promote_to_owner(*, user_id: str) -> User:
     user = get_user(user_id=user_id)
-    if not user:
+    if user is None:
         raise ApplicationError("User Not Found.", code=ErrorCode.USER_NOT_FOUND)
     if user.is_superuser:
         raise ApplicationError("User is already owner", code=ErrorCode.VALIDATION_ERROR)

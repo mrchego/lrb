@@ -1,10 +1,11 @@
+from  __future__ import annotations
 from typing import TYPE_CHECKING
 from django.contrib.auth.models import UserManager as DjangoUserManager
 
 if TYPE_CHECKING:
     from .models import User
     
-class UserManager(DjangoUserManager["User"]):
+class UserManager(DjangoUserManager[User]):
     def _create_user(self, email: str, password: str | None, **extra_fields):
         if not email:
             raise ValueError("The given email must be set")

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 @transaction.atomic
 def unlock_user(*, user_id: str) -> User:
     user = get_user(user_id=user_id)
-    if not user:
+    if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
     user.locked_until = None
     user.failed_login_attempts = 0
