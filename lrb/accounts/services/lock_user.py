@@ -11,19 +11,14 @@ if TYPE_CHECKING:
 
 
 @transaction.atomic
-def lock_user(*, user_id: str, duration_minutes: int =15) -> User:
+def lock_user(*, user_id: str, duration_minutes: int = 15) -> User:
     user = get_user(user_id=user_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
-    if user.company_id:
-        assert_not_last_owner(
-            user=user, company_id=str(user.company_id), action="locked"
-        )
-
+    assert_not_last_owner(user=user, company_id=str(user.company_id), action="locked")
     user.locked_until = timezone.now() + timezone.timedelta(minutes=duration_minutes)
     user.save(update_fields=["locked_until"])
     return user
-
 
 
 # 1. Purpose — Why does this exist?

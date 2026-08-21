@@ -14,11 +14,7 @@ def delete_user(*, user_id: str) -> User:
     user = get_user(user_id=user_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
-    if user.company_id:
-        assert_not_last_owner(
-            user=user, company_id=str(user.company_id), action="deleted"
-        )
-
+    assert_not_last_owner(user=user, company_id=str(user.company_id), action="deleted")
     user.is_active = False
     user.can_login = False
     user.save(update_fields=["is_active", "can_login"])

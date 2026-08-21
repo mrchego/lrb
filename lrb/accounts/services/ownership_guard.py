@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from lrb.accounts.models import User
 
 
-def assert_not_last_owner(*, user: User, company_id:str, action: str="modify")-> None:
+def assert_not_last_owner(*, user: User, company_id:str, action: str="modified")-> None:
     if not user.is_superuser:
         return
     
@@ -20,7 +20,7 @@ def assert_not_last_owner(*, user: User, company_id:str, action: str="modify")->
     remaining = count_active_superusers(company_id=company_id, exclude_ids=[str(user.id)])
     if remaining == 0:
         raise ApplicationError(
-            f"Cannot {action} the last active owner of the company.",
+            f"This is the last active owner of the company and cannot be {action}.",
             code=ErrorCode.LAST_OWNER,
         )
         
