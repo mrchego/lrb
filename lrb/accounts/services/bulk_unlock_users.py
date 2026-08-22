@@ -5,7 +5,6 @@ from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 from lrb.core.services.bulk_result import BulkActionResult
 
 
-@transaction.atomic
 def bulk_unlock_users(*, user_ids: Iterable[str], company_id: str) -> BulkActionResult:
     result = BulkActionResult()
     normalized_ids = [str(uid) for uid in user_ids]
@@ -14,10 +13,14 @@ def bulk_unlock_users(*, user_ids: Iterable[str], company_id: str) -> BulkAction
 
     for user in users:
         uid = str(user.id)
-        user.locked_until = None
-        user.failed_login_attempts = 0
-        user.save(update_fields=["locked_until", "failed_login_attempts"])
-        result.add_success(user_id=uid)
+        try:
+            with transaction.atomic():
+                user.locked_until = None
+                user.failed_login_attempts = 0
+                user.save(update_fields=["locked_until", "failed_login_attempts"])
+            result.add_success(user_id=uid)
+        except Exception as e:
+            result.add_failure(user_id=uid, reason=str(e))
 
     for missing in set(normalized_ids) - found_ids:
         result.add_failure(user_id=missing, reason="User not found in this company.")
@@ -256,3 +259,18 @@ def bulk_unlock_users(*, user_ids: Iterable[str], company_id: str) -> BulkAction
 # Why this is worth doing, concretely, not just as a style preference
 
 # With the old version, if you added a debugging line or a log statement after the normalization step — say, to record what the caller originally asked for — user_ids at that point would already be the transformed version, and the original request would be unrecoverable without re-deriving it. With normalized_ids as a distinct name, both versions stay available and distinguishable for as long as either is needed, at zero cost — the rename doesn't change what the function does, only how easy it is to reason about later.
+
+
+# What changed, and why each change matters
+
+# The @transaction.atomic decorator on the function itself is gone. This is the key move — without it, the function as a whole no longer wraps everything in one transaction. Each user's write now stands or falls entirely on its own.
+
+# with transaction.atomic(): inside the loop, one per user. This is transaction.atomic used as a context manager rather than a decorator — same underlying tool, different syntax for a different scope. A decorator wraps an entire function's execution; a with block wraps just the lines indented beneath it. Here, that's exactly the two field assignments and the save for one user — if anything inside that specific with block raises, only that block's writes get rolled back, leaving every previously-committed user from earlier loop iterations untouched.
+
+# try: / except Exception as e: wrapping the whole per-user block. This is what actually catches the failure instead of letting it propagate out of the function. Previously, nothing caught a save failure at all — it would crash straight through. Now, if .save() raises anything (an IntegrityError, a validation problem, whatever), the except catches it, and instead of the whole function dying, this one user gets recorded as a failure with str(e) as the reason, and the loop continues to the next user.
+
+# Why except Exception and not something narrower, like except IntegrityError? Because at this point in the code, you genuinely don't know every way a single save might fail, and the whole point of this design is resilience — one bad user shouldn't take down the batch, regardless of why that one user failed. This is a deliberate, wide net, appropriate specifically because each failure is being captured and reported, not silently swallowed — you still see exactly what went wrong for that one ID.
+
+# The trade-off you're accepting with this choice, stated plainly
+
+# This version runs one small transaction per user instead of one transaction for the whole batch — slightly more overhead per item, and it means a genuinely transient database issue (a brief connection blip) could cause a handful of scattered, unrelated-looking failures across the batch rather than one clean "the whole operation failed, try again" signal. For a bulk admin action processing tens of users, that overhead is negligible; if this pattern ever needed to scale to processing thousands of items per call, you'd want to revisit whether per-item transactions are still the right granularity — but at the scale everything in this project has shown so far, this is the right default.
