@@ -21,6 +21,7 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
             assert_not_last_owner(user=user, company_id=company_id, action="force password rest")
         except ApplicationError as e:
             result.add_failure(user_id=uid, reason=str(e))
+            continue
 
         try:
             with transaction.atomic():
