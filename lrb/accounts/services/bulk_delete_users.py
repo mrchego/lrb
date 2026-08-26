@@ -24,7 +24,7 @@ def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id
         try:
             assert_not_last_owner(user=user, company_id=company_id, action="deleted")
         except ApplicationError as e:
-            result.add_failure(user_id=uid, reason=str(e))
+            result.add_failure(user_id=uid, reason=str(e.message))
             continue
 
         try:
