@@ -141,3 +141,228 @@ Celery worker  → pulls task message  ← Redis
 Redis here isn't storing your task's business data — it's just the queue/mailbox between the web process and the worker process. Cookiecutter Django wires this up because it's such a common need (async email sending, scheduled jobs via Celery Beat, background report generation) that almost every production Django app ends up needing it eventually.
 
 General principle: anything that doesn't need to happen before you respond to the client should happen after — separating "what the user is waiting on" from "what can happen in the background" is a core scalability pattern, independent of Django/Python (Sidekiq in Rails, Bull in Node, Hangfire in .NET all solve the same problem).
+
+
+
+----------------------------------------------------------------------------
+GRAPHQL
+----------------------------------------------------------------------------
+
+The mental model first
+
+Think of these five files as a pipeline, not five independent files. Data has to flow through them in a specific direction:
+
+types.py  →  the shapes of data that exist (nouns)
+inputs.py →  the shapes of data coming IN from the client (nouns, but for requests)
+payloads.py → the shapes of data going OUT after a mutation (nouns, but for responses)
+queries.py  → read operations (verbs: "give me")
+mutations.py → write operations (verbs: "change this")
+
+The critical insight: queries.py and mutations.py depend on everything above them. You cannot write a query without knowing what type it returns. You cannot write a mutation without knowing what input it accepts and what payload it returns. This is why the order matters — it's not arbitrary, it mirrors the actual import dependency chain.
+
+1. types.py — the foundation, start here
+
+Purpose: Defines what a User (or Company, Role, etc.) looks like when exposed over GraphQL. This is the GraphQL-facing mirror of your Django model — but deliberately not the same thing.
+
+Why not just expose the Django model directly?
+Because your User model in models.py has fields you never want a client to see over the API — password hashes, internal flags, maybe failed_login_attempts. types.py is where you decide "here's the subset of fields, and here's how they're named/shaped, that the outside world is allowed to see." It's a deliberate boundary between your internal database structure and your public API contract.
+
+What it typically contains:
+
+python
+class UserType(DjangoObjectType):
+    class Meta:
+        model = User
+        fields = ["id", "email", "is_active", "locked_until", ...]
+
+Why start here? Every other file in this folder references types. queries.py needs UserType to say "this query returns a UserType." payloads.py needs UserType to say "after this mutation, here's the updated user." If you don't understand this file, nothing downstream will make sense.
+
+2. inputs.py — second, the "incoming shape"
+
+Purpose: Defines the shape of data a client sends you when calling a mutation. This is the GraphQL equivalent of a Django Form or a DRF Serializer's input side.
+
+Why is this a separate file from types.py, if they're both "shapes of data"?
+Because the shape of data going in is often different from data coming out. A client creating a user sends email, password, company_id — but never sends id (the server assigns that) or locked_until (that's server-managed state, not something a client sets directly). Conflating "what you receive" with "what you return" would let clients set fields they should never be allowed to touch.
+
+What it typically contains:
+
+python
+class LockUserInput(graphene.InputObjectType):
+    user_id = graphene.ID(required=True)
+    duration_minutes = graphene.Int(default_value=15)
+
+Notice the direct connection to code you already know: this LockUserInput maps almost one-to-one onto the parameters of lock_user(*, user_id: str, duration_minutes=15). That's not a coincidence — it's the whole point. The GraphQL layer's job is to be a thin translator between "what the network sent" and "what the service function needs."
+
+Why learn this second, not third? Because mutations.py needs inputs.py to know what arguments it's receiving before it can call your service function — same reason types.py came first: everything downstream consumes it.
+
+3. payloads.py — third, the "outgoing shape" for mutations
+
+Purpose: Defines what a mutation hands back after it runs — separate from what a query hands back, because mutations often need to communicate more than just "here's the object." A payload commonly wraps:
+
+python
+class LockUserPayload(graphene.ObjectType):
+    user = graphene.Field(UserType)
+    success = graphene.Boolean()
+    errors = graphene.List(graphene.String)
+
+Why does a mutation need a wrapper object instead of just returning UserType directly, the way a query might?
+Because mutations can fail in ways queries usually don't (validation errors, business rule violations — like assert_not_last_owner raising an error). A payload gives you a consistent shape to communicate both the result and whether/why it failed, without relying purely on GraphQL's separate top-level errors array (which is more for system-level failures than business-logic failures).
+
+Why does this depend on types.py? Look at user = graphene.Field(UserType) — it directly reuses the type you defined in file #1. This is the second file that consumes file #1's output.
+
+4. queries.py — fourth, read operations
+
+Purpose: Defines the "give me data" side of your API — the GraphQL equivalent of your selectors.py. Each query typically calls a selector function (like get_user) and returns a types.py type.
+
+python
+class Query(graphene.ObjectType):
+    user = graphene.Field(UserType, id=graphene.ID(required=True))
+
+    def resolve_user(root, info, id):
+        return get_user(user_id=id)
+
+Notice the direct line back to code you already understand: resolve_user is calling the exact same get_user selector that every service function in this project calls. GraphQL queries are, at their core, thin wrappers around your selector layer.
+
+Why fourth, not earlier? It depends on types.py (to know what shape to return) but has no dependency on inputs.py or payloads.py — queries don't take complex input objects (usually just simple scalar args like id) and don't need payload wrappers (no mutation-style success/error shape needed). It could technically be learned right after types.py, but conceptually it belongs after inputs/payloads because...
+
+5. mutations.py — last, and the most complex, because it depends on everything
+
+Purpose: Defines the "change something" side of your API — the GraphQL equivalent of your services.py. This is where lock_user, unlock_user, delete_user, promote_to_owner actually get called from the outside world.
+
+python
+class LockUser(graphene.Mutation):
+    class Arguments:
+        input = LockUserInput(required=True)
+
+    Output = LockUserPayload
+
+    def mutate(root, info, input):
+        try:
+            user = lock_user(user_id=input.user_id, duration_minutes=input.duration_minutes)
+            return LockUserPayload(user=user, success=True, errors=[])
+        except ApplicationError as e:
+            return LockUserPayload(user=None, success=False, errors=[str(e)])
+
+Why does this file need every other file?
+
+Arguments needs inputs.py (what the client sends)
+Output needs payloads.py (what gets sent back)
+payloads.py's user field needs types.py indirectly
+The mutate body calls straight into the service functions we've spent this whole conversation dissecting
+
+This is the payoff of everything you've learned so far. Every guard clause, every ApplicationError, every ErrorCode we walked through line-by-line in lock_user/delete_user/etc. — this is the file where that all gets triggered by a real network request. The try/except ApplicationError block here is precisely why those services raise typed exceptions instead of just returning None or False on failure — this mutation layer needs to catch something specific to turn into a clean payload with success=False and a real error message.
+
+Learning order, summarized
+Order	File	Why here
+1	types.py	Nothing depends on anything; everything depends on this
+2	inputs.py	Independent of types/payloads; needed before mutations
+3	payloads.py	Depends on types.py (wraps a type); needed before mutations
+4	queries.py	Depends only on types.py + selectors; simplest "consumer" file
+5	mutations.py	Depends on all four other files + your entire service layer
+
+The one-sentence version: you're learning in order of "how many other files does this depend on" — from zero dependencies (types.py) to depending on everything (mutations.py).
+
+Ready to paste in your actual types.py first? I'll give it the same full treatment — Purpose, Imports, every symbol in the signature, line-by-line body, and how it connects back to the User model and service functions we've already dissected.
+
+what is a resolver in strawberry graphql
+
+Let's use the same framework we've been using — this maps perfectly onto everything you already know about queries.py/mutations.py, just naming a specific piece of it.
+
+1. Purpose — Why does this exist?
+
+What problem is it solving?
+
+A GraphQL schema (your types.py/queries.py/mutations.py) describes the shape of your API — "there's a User type with an email field, there's a query called user that returns one." But describing a shape doesn't tell the computer how to actually get that data. Something has to bridge "the client asked for user.email" to "go run this Python code and fetch it."
+
+A resolver is that bridge. It's the function that actually runs to produce the value for one specific field.
+
+What happens if resolvers don't exist?
+
+Your schema would just be a static description with no way to fulfill requests — like a restaurant menu with no kitchen behind it.
+
+2. The core idea — every field has one, whether you see it or not
+
+In Strawberry, when you write:
+
+python
+import strawberry
+
+@strawberry.type
+class User:
+    id: strawberry.ID
+    email: str
+
+Strawberry automatically generates a default resolver for id and email — it just reads the attribute off the Python object you return. You never see it because you don't need to; the default is "just look up this attribute."
+
+You only need to write your own resolver when getting the value requires actual logic — a database lookup, a permission check, a calculation.
+
+3. Signature — what a resolver actually looks like
+python
+import strawberry
+from lrb.accounts.selectors.get_user import get_user
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    def user(self, id: strawberry.ID) -> "User":
+        return get_user(user_id=id)
+
+Let's break this down the way we've been doing:
+
+@strawberry.field — a decorator telling Strawberry "this method isn't just a normal Python method, it's a resolver for a GraphQL field called user."
+
+self — the "root" object (in queries, usually irrelevant/unused; in nested resolvers, it's the parent object — more on that below).
+
+id: strawberry.ID — this becomes a GraphQL argument. If a client queries user(id: "abc123"), this parameter receives "abc123".
+
+-> "User" — the return type, telling Strawberry (and the client) what shape comes back. Note this is a forward reference (quoted) — the same pattern we just covered with TYPE_CHECKING in lock_user. If User is defined later in the file or needs deferred evaluation, quoting it avoids a NameError.
+
+The body — this is where your resolver becomes the exact same thing as resolve_user in the Graphene example from your last question. It calls straight into your existing get_user selector. The resolver is the seam between "someone asked a question over the network" and "run my actual Python business logic and get an answer."
+
+4. Design Discussion — resolvers run per-field, not per-request
+
+This is the part that trips people up coming from REST.
+
+In REST, one URL → one view function → one response. In GraphQL, every single field can have its own resolver, and they run independently, potentially many times per request.
+
+python
+@strawberry.type
+class Company:
+    id: strawberry.ID
+    name: str
+
+    @strawberry.field
+    def owner(self) -> "User":
+        return get_owner_for_company(company_id=self.id)
+
+If a client asks:
+
+graphql
+query {
+  companies {
+    name
+    owner { email }
+  }
+}
+
+Strawberry first resolves companies (a list), then for each company in that list, it calls the owner resolver separately. Ten companies means the owner resolver runs ten times.
+
+Why does this matter? This is the famous N+1 query problem — if owner does a naive database hit each time, you get 1 query for companies + 10 queries for owners = 11 database round-trips for what could've been 2. This is exactly the kind of thing your service/selector-layer discipline (one clean call, no ORM logic scattered around) helps you control — resolvers should stay thin and delegate to selectors, same as your queries.py design.
+
+5. self in resolvers — the "parent" concept
+
+In the Company.owner example above, self is the specific Company instance that's currently being resolved — Strawberry passes it in automatically. This is how nested fields access data from their parent: self.id refers to this particular company's ID, not some global company.
+
+6. Common Beginner Mistakes
+
+❌ Putting business logic directly inside a resolver instead of calling a selector/service function — exactly the pattern we've established is wrong throughout this whole conversation. The resolver should be a thin translator, not where User.objects.filter(...) logic lives.
+
+❌ Not realizing a resolver can run many times per request (the N+1 problem above) — leads to accidentally slow APIs that "work" in testing with 3 rows and fall over in production with 3,000.
+
+❌ Forgetting that arguments in the resolver signature (like id: strawberry.ID) automatically become GraphQL arguments — beginners sometimes try to manually parse them from somewhere else.
+
+7. Real Project Usage — connecting to your actual files
+
+Given what you've shown me, your queries.py will have resolver methods that call your selectors (get_user), and your mutations.py will have resolver-like methods (in Strawberry, mutations use @strawberry.mutation instead of @strawberry.field) that call your service functions — lock_user, unlock_user, delete_user, promote_to_owner, restore_user — the exact five functions we spent this whole conversation dissecting.
+
+Want to paste your actual queries.py or mutations.py now that you know what a resolver is? I'd bet money your mutation resolvers directly call the service functions we already understand line-by-line — which means this file should read almost effortlessly to you at this point.
