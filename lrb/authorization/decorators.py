@@ -2,6 +2,7 @@ from functools import wraps
 from lrb.core.exceptions import AppPermissionDeniedError
 from lrb.authorization.selectors.user_has_permission import user_has_permission
 
+
 def require_permission(codename):
     def decorator(resolver):
         @wraps(resolver)
@@ -12,8 +13,11 @@ def require_permission(codename):
             if not user_has_permission(user=user, codename=codename):
                 raise AppPermissionDeniedError(f"Missing permission: {codename}")
             return resolver(self, info, *args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 def require_owner():
     def decorator(resolver):
@@ -24,10 +28,12 @@ def require_owner():
                 raise AppPermissionDeniedError("Authentication required.")
             if not user.is_superuser:
                 raise AppPermissionDeniedError(
-                     "Only the company owner can perform this action."
+                    "Only the company owner can perform this action."
                 )
             return resolver(self, info, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
