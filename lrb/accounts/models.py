@@ -2,13 +2,13 @@ from django.db import models
 from typing import ClassVar
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
-from lrb.core.models.base import BaseModel
+from lrb.core.models.mixins import UUIDMixin, TimeStampedMixin
 from lrb.accounts.managers import UserManager
 from lrb.core.utilis.files import avatar_upload_path
 from lrb.core.validators.phone import validate_phone_number
 
 
-class User(BaseModel, AbstractUser):
+class User(UUIDMixin, TimeStampedMixin, AbstractUser):
     username = None
     name = None
 
@@ -31,48 +31,57 @@ class User(BaseModel, AbstractUser):
             "including other owners."
         ),
     )
-    
-    company = models.ForeignKey("company.Company", on_delete=models.CASCADE, related_name="users", null=True, blank=True)
-    
-    can_login = models.BooleanField(default=True, help_text=_("Determines whether the user can sign in"))
+
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="users",
+        null=True,
+        blank=True,
+    )
+
+    can_login = models.BooleanField(
+        default=True, help_text=_("Determines whether the user can sign in")
+    )
     password_reset_required = models.BooleanField(default=False)
     last_password_change = models.DateTimeField(null=True, blank=True)
     failed_login_attempts = models.PositiveIntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
-    
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
-    
+
     objects: ClassVar[UserManager] = UserManager()
-    
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = _("User")
         verbose_name_plural = _("Users")
-        
+
         indexes = [
             models.Index(fields=["company"]),
             models.Index(fields=["is_active"]),
-            models.Index(fields=["can_login"])
+            models.Index(fields=["can_login"]),
         ]
-        
+
     @property
     def full_name(self) -> str:
         return " ".join(part for part in [self.first_name, self.last_name] if part)
-    
+
     @property
     def display_name(self) -> str:
         return self.full_name or self.email
-    
+
     @property
     def is_locked(self) -> bool:
-        from django.utils import timezone 
-        
+        from django.utils import timezone
+
         return self.locked_until is not None and self.locked_until > timezone.now()
-    
+
     def __str__(self) -> str:
         return self.display_name
-    
+
+
 # 1. Purpose — What problem does this solve?
 
 # Every Django project needs some representation of "a person who can log in." Django ships a default User model, but it's deliberately generic — username-based login, no company association, no lockout tracking, no avatar, etc. Real projects almost always need to customize it.
@@ -229,7 +238,7 @@ class User(BaseModel, AbstractUser):
 #     ordering = ["-created_at"]
 #     verbose_name = _("User")
 #     verbose_name_plural = _("Users")
-    
+
 #     indexes = [
 #         models.Index(fields=["company"]),
 #         models.Index(fields=["is_active"]),
@@ -270,8 +279,8 @@ class User(BaseModel, AbstractUser):
 # python
 # @property
 # def is_locked(self) -> bool:
-#     from django.utils import timezone 
-    
+#     from django.utils import timezone
+
 #     return self.locked_until is not None and self.locked_until > timezone.now()
 # Notice: the import statement is inside the method body, not at the top of the file — a local import. This is intentional and common practice for avoiding circular imports or minimizing startup-time imports for rarely-used dependencies — though here, since timezone has no obvious circular-import risk with User, it's more likely just a stylistic/historical choice (possibly moved here to avoid an unused-import warning if timezone isn't used elsewhere in the file).
 # self.locked_until is not None and ... — first checks there even is a lockout timestamp set at all (remember, locked_until is null=True — often None).
@@ -335,5 +344,3 @@ class User(BaseModel, AbstractUser):
 # "Certain configuration (ordering, display names, performance indexes) isn't a field on the model — it's metadata about the model — so it belongs in Meta, not as a top-level attribute."
 
 # That reasoning — "extend the framework's template, layer in project conventions, model real facts as fields and derived facts as properties, wire up the custom manager, and configure the rest via Meta" — is this file.
-    
-    

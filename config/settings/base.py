@@ -96,7 +96,10 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    "lrb.core.apps.CoreConfig"
+    "lrb.core.apps.CoreConfig",
+    "lrb.accounts.apps.AccountsConfig",
+    "lrb.company.apps.CompanyConfig",
+    "lrb.authorization.apps.AuthorizationConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -114,11 +117,11 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
-# AUTH_USER_MODEL = "users.User"
+AUTH_USER_MODEL = "accounts.User"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-redirect-url
-# LOGIN_REDIRECT_URL = "users:redirect"
+LOGIN_REDIRECT_URL = "accounts:redirect"
 # # https://docs.djangoproject.com/en/dev/ref/settings/#login-url
-# LOGIN_URL = "account_login"
+LOGIN_URL = "account_login"
 
 # PASSWORDS
 # ------------------------------------------------------------------------------
@@ -199,7 +202,7 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
-                # "lrb.users.context_processors.allauth_settings",
+                "lrb.accounts.context_processors.allauth_settings",
             ],
         },
     },
@@ -326,13 +329,13 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # https://docs.allauth.org/en/latest/account/configuration.html
-# ACCOUNT_ADAPTER = "lrb.users.adapters.AccountAdapter"
+ACCOUNT_ADAPTER = "lrb.accounts.adapters.AccountAdapter"
 # # https://docs.allauth.org/en/latest/account/forms.html
-# ACCOUNT_FORMS = {"signup": "lrb.users.forms.UserSignupForm"}
+ACCOUNT_FORMS = {"signup": "lrb.accounts.forms.UserSignupForm"}
 # # https://docs.allauth.org/en/latest/socialaccount/configuration.html
-# SOCIALACCOUNT_ADAPTER = "lrb.users.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "lrb.accounts.adapters.SocialAccountAdapter"
 # # https://docs.allauth.org/en/latest/socialaccount/configuration.html
-# SOCIALACCOUNT_FORMS = {"signup": "lrb.users.forms.UserSocialSignupForm"}
+SOCIALACCOUNT_FORMS = {"signup": "lrb.accounts.forms.UserSocialSignupForm"}
 
 
 # Your stuff...
