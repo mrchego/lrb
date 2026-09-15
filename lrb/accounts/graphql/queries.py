@@ -3,10 +3,10 @@ from typing import Optional
 import strawberry
 from lrb.accounts.graphql.types import UserConnection, UserType
 from lrb.accounts.selectors.get_current_user import get_current_user
+from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
 from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.selectors.list_users import list_users
 from lrb.authorization.decorators import require_owner
-from lrb.core.exceptions import AppPermissionDeniedError
 
 
 @strawberry.type
@@ -31,9 +31,7 @@ class UserQuery:
         limit: Optional[int] = None,
         offset: int = 0,
     ) -> UserConnection:
-        current = get_current_user(info)
-        if not current or not current.company_id:
-            raise AppPermissionDeniedError("No company context.")
+        current = get_current_user_or_raise(info)
         items, total_count = list_users(
             company_id=str(current.company_id),
             is_active=is_active,

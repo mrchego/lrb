@@ -7,10 +7,11 @@ from lrb.core.exceptions import AppPermissionDeniedError
 if TYPE_CHECKING:
     from lrb.accounts.models import User
 
-def get_current_user_or_raise(info: strawberry.Info) -> User:
+def get_current_user_or_raise(info: strawberry.Info ,*,
+    message: str = "No company context.",) -> User:
     current = get_current_user(info)
     if not current or not current.company_id:
-        raise AppPermissionDeniedError("No company context.")
+        raise AppPermissionDeniedError(message=message)
     return current
 
 
