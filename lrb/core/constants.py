@@ -9,3 +9,10 @@ ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"]
 
 # Security & Validation
 PHONE_REGEX = r"^\+?1?\d{9,15}$"
+
+# Identity Validation
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION_MINUTES = 15
+
+VERIFICATION_CODE_LENGTH = 6
+VERIFICATION_CODE_EXPIRY_MINUTES = 5
