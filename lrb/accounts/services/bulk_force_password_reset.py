@@ -15,24 +15,24 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
     for user in users:
         uid = str(user.id)
         if uid == current_user_id:
-            result.add_failure(user_id=uid, reason="Cannot force password reset on your on account")
+            result.add_failure(item_id=uid, reason="Cannot force password reset on your on account")
             continue
         try:
             assert_not_last_owner(user=user, company_id=company_id, action="force password rest")
         except ApplicationError as e:
-            result.add_failure(user_id=uid, reason=str(e.message))
+            result.add_failure(item_id=uid, reason=str(e.message))
             continue
 
         try:
             with transaction.atomic():
                 user.password_reset_required = True
                 user.save(update_fields = ["password_reset_required"])
-            result.add_success(user_id=uid)
+            result.add_success(item_id=uid)
         except Exception as e:
-            result.add_failure(user_id=uid, reason=str(e))
+            result.add_failure(item_id=uid, reason=str(e))
 
     for missing in set(normalized_ids) - found_ids:
-        result.add_failure(user_id=missing, reason="User not found in this company.")
+        result.add_failure(item_id=missing, reason="User not found in this company.")
 
     return result
 

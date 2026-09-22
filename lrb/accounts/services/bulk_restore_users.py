@@ -13,19 +13,19 @@ def bulk_restore_users(*, user_ids:Iterable[str], company_id:str) -> BulkActionR
     for user in users:
         uid = str(user.id)
         if user.is_active and user.can_login:
-            result.add_failure(user_id=uid, reason="Not deleted — nothing to restore.")
+            result.add_failure(item_id=uid, reason="Not deleted — nothing to restore.")
             continue
         try:
             with transaction.atomic():
                 user.is_active=True
                 user.can_login=True
                 user.save(update_fields=["is_active", "can_login"])
-            result.add_success(user_id=uid)
+            result.add_success(item_id=uid)
         except Exception as e:
-            result.add_failure(user_id=uid, reason=str(e))
+            result.add_failure(item_id=uid, reason=str(e))
         
     for missing in set(normalized_ids) - found_ids:
-        result.add_failure(user_id=missing, reason="User not found in this company.")
+        result.add_failure(item_id=missing, reason="User not found in this company.")
         
     return result
 

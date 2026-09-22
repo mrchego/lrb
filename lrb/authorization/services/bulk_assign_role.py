@@ -17,7 +17,7 @@ def bulk_assign_role(
     result = BulkActionResult()
     role = get_role(role_id=role_id, company_id=company_id)
     if not role:
-        result.add_failure(user_id="*",reason= "Role not found.")
+        result.add_failure(item_id="*",reason= "Role not found.")
         return result
     normalized_ids = [str(uid) for uid in user_ids]
     users = list(get_users_by_ids(user_ids=normalized_ids, company_id=company_id))
@@ -30,12 +30,12 @@ def bulk_assign_role(
                 _, created = UserRole.objects.get_or_create(user=user, role=role)
                 if created:
                     invalidate_user_permissions_cache(user_id=user.id)
-            result.add_success(user_id=uid)
+            result.add_success(item_id=uid)
         except Exception as e:
-            result.add_failure(user_id=uid, reason=str(e))
+            result.add_failure(item_id=uid, reason=str(e))
 
     for missing in set(normalized_ids) - found_ids:
-        result.add_failure(user_id=missing, reason="User not found in this company.")
+        result.add_failure(item_id=missing, reason="User not found in this company.")
 
     return result
 

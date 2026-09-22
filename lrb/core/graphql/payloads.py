@@ -10,7 +10,7 @@ class SimpleMutationPayload:
     
 @strawberry.type
 class BulkActionFailure:
-    user_id: strawberry.ID
+    item_id: strawberry.ID
     reason: str
 
 
@@ -24,7 +24,7 @@ def to_bulk_payload(result) -> BulkActionPayload:
     return BulkActionPayload(
         success=len(result.failed) == 0,
         succeeded_ids=result.succeeded,
-        failed=[BulkActionFailure(user_id=f["user_id"], reason=f["reason"]) for f in result.failed],
+        failed=[BulkActionFailure(item_id=f["item_id"], reason=f["reason"]) for f in result.failed],
     )
     
     
@@ -74,10 +74,10 @@ def to_bulk_payload(result) -> BulkActionPayload:
 # python
 # @strawberry.type
 # class BulkActionFailure:
-#     user_id: strawberry.ID
+#     item_id: strawberry.ID
 #     reason: str
 
-# Why a brand-new type, when MutationError already exists? Worth noticing this deliberately: MutationError has message, code, field — built for describing "one thing went wrong with one mutation." BulkActionFailure has user_id, reason — built for describing "this specific item, among many, failed, and here's why." These represent genuinely different concepts: one mutation-wide error, versus one failed item inside a list of many attempted items. Reusing MutationError here would be a poor fit — it has no user_id field to say which item failed, and it carries a code/field that don't cleanly apply to "item 42 out of 100 failed."
+# Why a brand-new type, when MutationError already exists? Worth noticing this deliberately: MutationError has message, code, field — built for describing "one thing went wrong with one mutation." BulkActionFailure has item_id, reason — built for describing "this specific item, among many, failed, and here's why." These represent genuinely different concepts: one mutation-wide error, versus one failed item inside a list of many attempted items. Reusing MutationError here would be a poor fit — it has no item_id field to say which item failed, and it carries a code/field that don't cleanly apply to "item 42 out of 100 failed."
 
 # strawberry.ID, a new type worth explaining: this is a Strawberry-specific type representing a GraphQL ID — a special scalar type in the GraphQL spec meant specifically for unique identifiers. It's serialized as a string over the wire, but marking it as ID (rather than plain str) tells GraphQL clients/tools "this specific value identifies something uniquely" — useful for client-side caching tools (like Apollo or Relay) that specifically look for ID fields to know how to cache/refetch objects correctly.
 
@@ -93,7 +93,7 @@ def to_bulk_payload(result) -> BulkActionPayload:
 
 # success: bool — a summary flag; true if the whole bulk operation had zero failures.
 # succeeded_ids: List[strawberry.ID] — every ID that succeeded, as a plain list of GraphQL IDs.
-# failed: List[BulkActionFailure] — every failure, each one carrying its own user_id and reason.
+# failed: List[BulkActionFailure] — every failure, each one carrying its own item_id and reason.
 # 5. to_bulk_payload — the body, line by line
 # python
 # def to_bulk_payload(result) -> BulkActionPayload:
@@ -112,13 +112,13 @@ def to_bulk_payload(result) -> BulkActionPayload:
 # Directly copies result.succeeded (already a plain list of ID strings from BulkActionResult) straight across — no transformation needed, since both sides expect "a list of IDs."
 
 # python
-#         failed=[BulkActionFailure(user_id=f["user_id"], reason=f["reason"]) for f in result.failed],
+#         failed=[BulkActionFailure(item_id=f["item_id"], reason=f["reason"]) for f in result.failed],
 #     )
 
 # This is a list comprehension — a compact way of writing "build a new list by transforming every item in an existing list," worth breaking down piece by piece:
 
-# for f in result.failed — loop over every dictionary in result.failed (recall each one looks like {"user_id": "...", "reason": "..."}), calling each one f as we go.
-# BulkActionFailure(user_id=f["user_id"], reason=f["reason"]) — for each dictionary f, build one new BulkActionFailure GraphQL object, pulling the two values out of the dictionary by key and placing them into the object's fields.
+# for f in result.failed — loop over every dictionary in result.failed (recall each one looks like {"item_id": "...", "reason": "..."}), calling each one f as we go.
+# BulkActionFailure(item_id=f["item_id"], reason=f["reason"]) — for each dictionary f, build one new BulkActionFailure GraphQL object, pulling the two values out of the dictionary by key and placing them into the object's fields.
 # The surrounding [...] collects every one of those newly-built objects into a brand-new list.
 
 # Whole line, in plain English: "for every failure dictionary in result.failed, build a proper BulkActionFailure GraphQL object out of it, and collect all of those into a list."
@@ -130,13 +130,13 @@ def to_bulk_payload(result) -> BulkActionPayload:
 # python
 # failed_list = []
 # for f in result.failed:
-#     failed_list.append(BulkActionFailure(user_id=f["user_id"], reason=f["reason"]))
+#     failed_list.append(BulkActionFailure(item_id=f["item_id"], reason=f["reason"]))
 
 # List comprehensions are common in Python specifically because "build a new list by transforming each item in an existing one" is such a frequent pattern that Python gives it dedicated, more compact syntax.
 
 # Why square brackets around the whole comprehension? Same reason as any list literal — square brackets mean "this is a list."
 
-# Why f["user_id"] instead of f.user_id? Because f here is a plain Python dictionary (recall add_failure built it as {"user_id": ..., "reason": ...}), and dictionaries use square-bracket key lookup (dict["key"]), not dot access. Dot access (f.user_id) is for objects with actual named attributes — a dictionary doesn't have those; it has keys.
+# Why f["item_id"] instead of f.item_id? Because f here is a plain Python dictionary (recall add_failure built it as {"item_id": ..., "reason": ...}), and dictionaries use square-bracket key lookup (dict["key"]), not dot access. Dot access (f.item_id) is for objects with actual named attributes — a dictionary doesn't have those; it has keys.
 
 # 7. Design Discussion — the missing type hint
 
@@ -174,8 +174,8 @@ def to_bulk_payload(result) -> BulkActionPayload:
 # A bulk mutation resolver in your schema would look roughly like:
 
 # python
-# def bulk_deactivate_users(self, info, user_ids: List[strawberry.ID]) -> BulkActionPayload:
-#     result = deactivate_users_service(user_ids=user_ids)  # returns a BulkActionResult
+# def bulk_deactivate_users(self, info, item_ids: List[strawberry.ID]) -> BulkActionPayload:
+#     result = deactivate_users_service(item_ids=item_ids)  # returns a BulkActionResult
 #     return to_bulk_payload(result)
 
 # — the resolver stays thin (matching your project's established "mutations are thin orchestration layers" convention), delegating the real work to a service, and delegating the response-shaping to this converter.

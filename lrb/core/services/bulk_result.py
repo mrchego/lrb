@@ -6,11 +6,11 @@ class BulkActionResult:
     succeeded: list[str] = field(default_factory=list)
     failed: list[dict] = field(default_factory=list)
     
-    def add_success(self, * ,user_id: str) -> None:
-        self.succeeded.append(user_id)
+    def add_success(self, * ,item_id: str) -> None:
+        self.succeeded.append(item_id)
         
-    def add_failure(self, * ,user_id:str, reason:str) -> None:
-        self.failed.append({"user_id": user_id, "reason": reason})
+    def add_failure(self, * ,item_id:str, reason:str) -> None:
+        self.failed.append({"item_id": item_id, "reason": reason})
         
         
         
@@ -98,26 +98,26 @@ class BulkActionResult:
 
 # 6. The methods
 # python
-#     def add_success(self, user_id: str) -> None:
-#         self.succeeded.append(user_id)
+#     def add_success(self, item_id: str) -> None:
+#         self.succeeded.append(item_id)
 
 # Signature, piece by piece:
 
 # def — "I'm defining a reusable block of instructions."
 # add_success — its name; a method (a function that lives inside a class and operates on a specific instance).
-# (self, user_id: str) — self (the instance this runs on, explained above), plus one real input, user_id, expected to be a string.
+# (self, item_id: str) — self (the instance this runs on, explained above), plus one real input, item_id, expected to be a string.
 # -> None — a return type hint meaning "this method doesn't hand anything back." It exists purely to change the object's own data (a "side effect"), not to compute and return a new value.
 
 # Body, right side then left side then whole line:
-# self.succeeded.append(user_id) — read the chain left to right as a journey: start at self (this specific instance) → go to its succeeded list → call .append() on that list (a built-in list method meaning "add one item onto the end") → the thing being added is user_id.
+# self.succeeded.append(item_id) — read the chain left to right as a journey: start at self (this specific instance) → go to its succeeded list → call .append() on that list (a built-in list method meaning "add one item onto the end") → the thing being added is item_id.
 
-# Whole line in plain English: "Add this user_id onto the end of this instance's own succeeded list."
+# Whole line in plain English: "Add this item_id onto the end of this instance's own succeeded list."
 
 # python
-#     def add_failure(self, user_id: str, reason: str) -> None:
-#         self.failed.append({"user_id": user_id, "reason": reason})
+#     def add_failure(self, item_id: str, reason: str) -> None:
+#         self.failed.append({"item_id": item_id, "reason": reason})
 
-# Same shape, but with two inputs (user_id, reason), and instead of appending a plain string, it builds a small dictionary — {"user_id": user_id, "reason": reason} — pairing the failed user's ID with why they failed, then appends that whole dictionary onto self.failed.
+# Same shape, but with two inputs (item_id, reason), and instead of appending a plain string, it builds a small dictionary — {"item_id": item_id, "reason": reason} — pairing the failed user's ID with why they failed, then appends that whole dictionary onto self.failed.
 
 # 7. Beginner questions, answered
 
@@ -125,17 +125,17 @@ class BulkActionResult:
 
 # Why square brackets in list[str]? This is Python's syntax for saying "a list, specifically containing this type of thing." list[str] = "a list of strings." list[dict] = "a list of dictionaries."
 
-# Why curly braces in {"user_id": user_id, "reason": reason}? Curly braces {} build a dictionary — a collection of key: value pairs. "user_id" is the key (always in quotes, since it's literal text), and user_id (no quotes) is the variable, whose current value gets stored under that key.
+# Why curly braces in {"item_id": item_id, "reason": reason}? Curly braces {} build a dictionary — a collection of key: value pairs. "item_id" is the key (always in quotes, since it's literal text), and item_id (no quotes) is the variable, whose current value gets stored under that key.
 
 # Why colons in succeeded: list[str]? This specific colon isn't dictionary syntax — it's a type hint separator: "the name on the left should hold a value of the type on the right."
 
-# Why not just write directly to the lists everywhere, like result.succeeded.append(user_id), instead of calling add_success()? Covered fully in Design Discussion below.
+# Why not just write directly to the lists everywhere, like result.succeeded.append(item_id), instead of calling add_success()? Covered fully in Design Discussion below.
 
 # 8. Design Discussion
 
 # Why add_success()/add_failure() methods instead of letting callers touch .succeeded/.failed directly?
 
-# This gives you one single, controlled place where "a success gets recorded" happens. Right now, that's just one line (.append(...)). But imagine later you decide every success should also record a timestamp, or every failure should include an error code alongside the reason. If every caller across your project did result.succeeded.append(user_id) directly, you'd have to find and update every single call site to add that new behavior. With a method, you change add_success() once, and every caller automatically benefits — they don't even need to know anything changed.
+# This gives you one single, controlled place where "a success gets recorded" happens. Right now, that's just one line (.append(...)). But imagine later you decide every success should also record a timestamp, or every failure should include an error code alongside the reason. If every caller across your project did result.succeeded.append(item_id) directly, you'd have to find and update every single call site to add that new behavior. With a method, you change add_success() once, and every caller automatically benefits — they don't even need to know anything changed.
 
 # Trade-off: it's a tiny bit more code upfront (two small methods instead of "just append directly") for meaningfully more flexibility later. This is a very standard trade in software design — a small amount of indirection now, in exchange for a single point of control later.
 
@@ -155,13 +155,13 @@ class BulkActionResult:
 
 # 10. Real project usage
 
-# In your RBAC project, this would plug into a bulk mutation service — e.g., a bulk_deactivate_users service that loops over a list of user IDs, tries to deactivate each one, and calls result.add_success(user_id) or result.add_failure(user_id, reason) depending on outcome. The finished BulkActionResult object then gets handed to the GraphQL layer, which reads .succeeded and .failed to build the mutation's response payload for the frontend.
+# In your RBAC project, this would plug into a bulk mutation service — e.g., a bulk_deactivate_users service that loops over a list of user IDs, tries to deactivate each one, and calls result.add_success(item_id) or result.add_failure(item_id, reason) depending on outcome. The finished BulkActionResult object then gets handed to the GraphQL layer, which reads .succeeded and .failed to build the mutation's response payload for the frontend.
 
 # 11. Common beginner mistakes
 # ❌ Using = [] directly as a field default instead of field(default_factory=list) — causes the shared-mutable-default bug explained above.
 # ❌ Using field(default=list) instead of field(default_factory=list) — the exact bug we just found and fixed in this file.
 # ❌ Forgetting -> None isn't required but omitting it makes it unclear (to a reader) whether a method is meant to return something useful or just mutate the object.
-# ❌ Writing self.succeeded = self.succeeded.append(user_id) — a subtle trap: .append() always returns None, so this would silently wipe out the whole list with None. .append() modifies the list in place; it doesn't need (or want) reassignment.
+# ❌ Writing self.succeeded = self.succeeded.append(item_id) — a subtle trap: .append() always returns None, so this would silently wipe out the whole list with None. .append() modifies the list in place; it doesn't need (or want) reassignment.
 # 12. Think like the original developer
 
 # If you had no reference and needed to invent this yourself, the reasoning would go:

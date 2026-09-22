@@ -16,29 +16,29 @@ def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_us
     for user in users:
         uid = str(user.id)
         if uid == current_user_id:
-            result.add_failure(user_id=uid, reason="You cannot deactivate your own account")
+            result.add_failure(item_id=uid, reason="You cannot deactivate your own account")
             continue
 
         if not user.is_active:
-            result.add_failure(user_id=uid, reason="user is not active")
+            result.add_failure(item_id=uid, reason="user is not active")
             continue
 
         try:
             assert_not_last_owner(user=user, company_id=company_id, action="deactivated")
         except ApplicationError as e:
-            result.add_failure(user_id=uid, reason=str(e.message))
+            result.add_failure(item_id=uid, reason=str(e.message))
             continue
 
         try:
             with transaction.atomic():
                 user.is_active = False
                 user.save(update_fields=["is_active"])
-            result.add_success(user_id=uid)
+            result.add_success(item_id=uid)
         except Exception as e:
-            result.add_failure(user_id=uid, reason=str(e))
+            result.add_failure(item_id=uid, reason=str(e))
 
     for missing in set(normalized_ids) - found_ids:
-        result.add_failure(user_id=missing, reason="User not found in company")
+        result.add_failure(item_id=missing, reason="User not found in company")
 
     return result
 

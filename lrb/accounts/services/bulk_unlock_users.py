@@ -18,12 +18,12 @@ def bulk_unlock_users(*, user_ids: Iterable[str], company_id: str) -> BulkAction
                 user.locked_until = None
                 user.failed_login_attempts = 0
                 user.save(update_fields=["locked_until", "failed_login_attempts"])
-            result.add_success(user_id=uid)
+            result.add_success(item_id=uid)
         except Exception as e:
-            result.add_failure(user_id=uid, reason=str(e))
+            result.add_failure(item_id=uid, reason=str(e))
 
     for missing in set(normalized_ids) - found_ids:
-        result.add_failure(user_id=missing, reason="User not found in this company.")
+        result.add_failure(item_id=missing, reason="User not found in this company.")
 
     return result
 
