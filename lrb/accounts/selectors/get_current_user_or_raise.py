@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import strawberry
-from lrb.accounts.selectors import get_current_user
+from lrb.accounts.selectors.get_current_user import get_current_user
 from lrb.core.exceptions import AppPermissionDeniedError
 
 if TYPE_CHECKING:

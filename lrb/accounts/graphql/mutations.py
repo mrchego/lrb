@@ -10,6 +10,7 @@ from lrb.accounts.graphql.inputs import (
     DemoteOwnerInput,
 )
 from lrb.accounts.graphql.payloads import UserMutationPayload
+from lrb.accounts.services.bulk_deactivate_users import bulk_deactivate_users
 from lrb.core.graphql.payloads import (
     BulkActionPayload,
     to_bulk_payload,
@@ -179,6 +180,19 @@ class UserMutation:
         result = bulk_activate_users_action(
             user_ids=input.user_ids,
             company_id=str(current.company_id),
+        )
+        return to_bulk_payload(result)
+
+    @strawberry.mutation
+    @require_owner()
+    def bulk_deactivate_users(
+        self, info: strawberry.Info, input: BulkUserIdsInput
+    ) -> BulkActionPayload:
+        current = get_current_user_or_raise(info)
+        result = bulk_deactivate_users(
+            user_ids=input.user_ids,
+            company_id=str(current.company_id),
+            current_user_id=current.id,
         )
         return to_bulk_payload(result)
 

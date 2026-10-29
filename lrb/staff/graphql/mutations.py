@@ -152,7 +152,6 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
     def accept_invitation(
         self, info: strawberry.Info, input: AcceptInvitationInput
     ) -> AcceptInvitationPayload:
@@ -167,7 +166,7 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner
+    @require_owner()
     def promote_staff_to_login(
         self, info: strawberry.Info, input: PromoteStaffToLoginInput
     ) -> InvitationMutationPayload:

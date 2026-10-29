@@ -1,5 +1,14 @@
+import logging
+logger = logging.getLogger(__name__)
+
 def get_current_user(info):
     request = info.context.request
+    logger.warning(
+        "auth=%r cookies=%r user=%r",
+        request.headers.get("authorization"),
+        list(request.COOKIES.keys()),
+        getattr(request, "user", None),
+    )
     if not request.user.is_authenticated:
         return None
     return request.user

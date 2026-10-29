@@ -20,6 +20,7 @@ dependencies = [
   "django-allauth[mfa]==65.18.0",
   "django-anymail[brevo]==15.0",
   "django-celery-beat==2.9.0",
+  "django-cors-headers>=4.9.0",
   "django-crispy-forms==2.7",
   "django-environ==0.14.0",
   "django-model-utils==5.0.0",

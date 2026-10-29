@@ -1,5 +1,5 @@
 from __future__ import annotations
-from lrb.accounts.selectors import count_active_superusers
+from lrb.accounts.selectors.count_active_superusers import count_active_superusers
 from lrb.core.exceptions import ApplicationError, ErrorCode
 from typing import TYPE_CHECKING
 

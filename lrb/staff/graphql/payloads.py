@@ -17,7 +17,7 @@ class InvitationMutationPayload:
 @strawberry.type
 class AcceptInvitationPayload:
     success: bool
-    invitation: Optional[UserType] = None
+    user: Optional[UserType] = None
     errors: Optional[List[MutationError]] = None
 
 

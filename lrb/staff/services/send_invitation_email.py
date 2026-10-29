@@ -8,7 +8,7 @@ def send_invitation_email(*, request, invitation):
     frontend_base = getattr(settings, "FRONTEND_URL", None)
     if frontend_base:
         accept_url = (
-            f"{frontend_base.rstrip('/')}/accept-invitation? token={invitation.token}"
+            f"{frontend_base.rstrip('/')}/accept-invitation?token={invitation.token}"
         )
     else:
         accept_url = request.build_absolute_uri(

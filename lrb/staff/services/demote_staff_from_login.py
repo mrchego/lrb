@@ -14,7 +14,7 @@ from lrb.staff.selectors.get_pending_invitation_for_email import (
 @transaction.atomic
 def demote_staff_from_login(*, user_id, company_id):
     user = get_user(user_id=user_id)
-    if not user or user.company_id != company_id:
+    if not user or str(user.company_id) != str(company_id):
         raise ApplicationError(
             message="Staff member not found.", code=ErrorCode.USER_NOT_FOUND
         )

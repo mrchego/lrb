@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.utils import timezone
 
+from lrb.authorization.models.user_role import UserRole
 from lrb.authorization.services.assign_role import assign_role
 from lrb.core.exceptions import ApplicationError, ErrorCode
 from lrb.identity.services.change_password import set_password_unchecked
@@ -35,11 +36,15 @@ def accept_invitation(*, token, new_password):
     user.save(update_fields=["can_login", "is_active"])
 
     if invitation.role_id:
-        assign_role(
-            user_id=user.id,
-            role_id=invitation.role_id,
-            company_id=invitation.company_id,
-        )
+        already_assigned = UserRole.objects.filter(
+            user_id=user.id, role_id=invitation.role_id
+        ).exists()
+        if not already_assigned:
+            assign_role(
+                user_id=user.id,
+                role_id=invitation.role_id,
+                company_id=invitation.company_id,
+            )
 
     invitation.used = True
     invitation.accepted_at = timezone.now()

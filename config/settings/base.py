@@ -86,6 +86,7 @@ DJANGO_APPS = [
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
+    "corsheaders",
     "crispy_forms",
     "crispy_bootstrap5",
     "allauth",
@@ -93,6 +94,7 @@ THIRD_PARTY_APPS = [
     "allauth.mfa",
     "allauth.socialaccount",
     "django_celery_beat",
+    "strawberry_django",
 ]
 
 LOCAL_APPS = [
@@ -100,6 +102,10 @@ LOCAL_APPS = [
     "lrb.accounts.apps.AccountsConfig",
     "lrb.company.apps.CompanyConfig",
     "lrb.authorization.apps.AuthorizationConfig",
+    "lrb.identity.apps.IdentityConfig",
+    "lrb.staff.apps.StaffConfig",
+    "lrb.products.apps.ProductsConfig",
+    "lrb.dashboard.apps.DashboardConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -148,6 +154,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -337,6 +344,18 @@ SOCIALACCOUNT_ADAPTER = "lrb.accounts.adapters.SocialAccountAdapter"
 # # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_FORMS = {"signup": "lrb.accounts.forms.UserSocialSignupForm"}
 
+ALLOWED_HOSTS = env.list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1", ".localhost", "admin.localhost"],
+)
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://*.localhost:8000",
+]
+
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")

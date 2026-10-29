@@ -1,4 +1,5 @@
 from django.contrib import admin
+from lrb.company.models.settings import CompanySettings
 from lrb.core.admin import BaseModelAdmin
 from lrb.company.models.company import Company
 
@@ -18,7 +19,7 @@ class CompanyAdmin(BaseModelAdmin):
         ('Audit', {'fields': ('id', 'created_at', 'updated_at')}),
     )
 
-# @admin.register(CompanySettings)
-# class CompanySettingsAdmin(BaseModelAdmin):
-#     list_display = ['company', 'currency', 'timezone', 'theme']
-#     list_filter = ['currency', 'timezone']
+@admin.register(CompanySettings)
+class CompanySettingsAdmin(BaseModelAdmin):
+    list_display = ['company', 'currency', 'timezone', 'theme']
+    list_filter = ['currency', 'timezone']
