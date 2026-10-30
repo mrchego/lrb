@@ -51,6 +51,11 @@ class EffectivePermissionType:
     user_id: strawberry.ID
     codenames: List[str]
 
+@strawberry_django.type(Role)
+class RoleSummaryType:
+    id: auto
+    name: auto
+
 # Teaching: GraphQL Types (PermissionType, RoleType, UserPermissionOverride, EffectivePermissionType)
 
 # This file is a different kind of code again — not selectors/services/commands, but GraphQL type definitions: the layer that describes what shape of data your API exposes to the frontend, and how each field gets its value. New library (strawberry_django), new syntax (auto), and — importantly — a real, serious bug hiding in plain sight. Let's build this up piece by piece.

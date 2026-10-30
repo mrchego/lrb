@@ -19,17 +19,25 @@ def bulk_assign_role(
     if not role:
         result.add_failure(item_id="*",reason= "Role not found.")
         return result
-    normalized_ids = [str(uid) for uid in user_ids]
+    normalized_ids = list(dict.fromkeys(str(uid) for uid in user_ids))
     users = list(get_users_by_ids(user_ids=normalized_ids, company_id=company_id))
     found_ids = {str(u.id) for u in users}
 
     for user in users:
         uid = str(user.id)
+        if not user.can_login:
+            result.add_failure(
+                item_id=uid,
+                reason="Staff record without login access. Give them login access first.",
+            )
+            continue
         try:
             with transaction.atomic():
                 _, created = UserRole.objects.get_or_create(user=user, role=role)
                 if created:
-                    invalidate_user_permissions_cache(user_id=user.id)
+                    transaction.on_commit(
+                        lambda uid=user.id: invalidate_user_permissions_cache(user_id=uid)
+                    )
             result.add_success(item_id=uid)
         except Exception as e:
             result.add_failure(item_id=uid, reason=str(e))

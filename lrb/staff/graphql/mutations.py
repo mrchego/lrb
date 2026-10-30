@@ -86,8 +86,9 @@ class StaffMutation:
     def revoke_invitation(
         self, info: strawberry.Info, input: RevokeInvitationInput
     ) -> SimpleMutationPayload:
+        current = get_current_user_or_raise(info)
         try:
-            revoke_invitation_action(invitation_id=input.invitation_id)
+            revoke_invitation_action(invitation_id=input.invitation_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -99,9 +100,10 @@ class StaffMutation:
     def resend_invitation(
         self, info: strawberry.Info, input: ResendInvitationInput
     ) -> InvitationMutationPayload:
+        current = get_current_user_or_raise(info)
         try:
             invitation = resend_invitation_action(
-                invitation_id=input.invitation_id, request=info.context.request
+                invitation_id=input.invitation_id, company_id=str(current.company_id),request=info.context.request
             )
             return InvitationMutationPayload(success=True, invitation=invitation)
         except ApplicationError as e:
@@ -114,9 +116,10 @@ class StaffMutation:
     def set_staff_login_access(
         self, info: strawberry.Info, input: SetStaffLoginAccessInput
     ) -> SimpleMutationPayload:
+        current = get_current_user_or_raise(info)
         try:
             set_staff_login_access_action(
-                user_id=input.user_id, can_login=input.can_login
+                user_id=input.user_id, can_login=input.can_login, company_id=str(current.company_id)
             )
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:

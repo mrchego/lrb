@@ -14,11 +14,11 @@ from lrb.core.validators.validate_company_name import validate_company_name
 def create_company(
     *, name, email, phone, country, city, address, logo_light=None, logo_dark=None
 ):
-    if Company.objects.exists():
-        raise BusinessRuleViolationError(
-            message="There can only be one company.",
-            code=ErrorCode.COMPANY_ALREADY_EXISTS,
-        )
+    # if Company.objects.exists():
+    #     raise BusinessRuleViolationError(
+    #         message="There can only be one company.",
+    #         code=ErrorCode.COMPANY_ALREADY_EXISTS,
+    #     )
 
     validate_company_name(value=name)
     validate_phone_number(phone)

@@ -14,6 +14,12 @@ def assign_role(*, user_id, role_id, company_id):
     if not user or str(user.company_id) != str(company_id):
         raise ApplicationError(message="User not found.", code=ErrorCode.USER_NOT_FOUND)
 
+    if not user.can_login:
+        raise ApplicationError(
+            message="This staff member has no login access. Give them login access first.",
+            code=ErrorCode.BUSINESS_RULE,
+        )
+
     role = Role.objects.filter(pk=role_id, company_id=company_id).first()
     if not role:
         raise ApplicationError(message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND)
@@ -26,7 +32,7 @@ def assign_role(*, user_id, role_id, company_id):
             code=ErrorCode.ALREADY_ASSIGNED,
         )
 
-    invalidate_user_permissions_cache(user_id=user.id)
+    transaction.on_commit(lambda: invalidate_user_permissions_cache(user_id=user.id))
     return True
 
 

@@ -1,9 +1,13 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, Annotated,  List, Optional
 import strawberry
 import strawberry_django
 from strawberry import auto
 from lrb.accounts.models import User
+
+
+if TYPE_CHECKING:
+    from lrb.authorization.graphql.types import RoleSummaryType
 
 @strawberry.type
 class ImageType:
@@ -14,6 +18,7 @@ class ImageType:
 class CompanyBasicType:
     id: strawberry.ID
     name: str
+
 
 @strawberry_django.type(User)
 class UserType:
@@ -59,6 +64,18 @@ class UserType:
         if not self.company_id:
             return None
         return CompanyBasicType(id=self.company.id, name=self.company.name)
+
+    @strawberry.field
+    def roles(
+        self,
+    ) -> List[
+        Annotated[
+            "RoleSummaryType", strawberry.lazy("lrb.authorization.graphql.types")
+        ]
+    ]:
+        return sorted(
+            (ur.role for ur in self.user_roles.all()), key=lambda r: r.name
+        )
 
 @strawberry.type
 class UserConnection:

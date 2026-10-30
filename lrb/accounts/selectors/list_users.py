@@ -1,6 +1,7 @@
 from typing import Optional
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from lrb.accounts.models import User
+from lrb.authorization.models.user_role import UserRole
 from lrb.core.pagination import paginate_queryset
 
 
@@ -13,7 +14,12 @@ def list_users(
     limit: Optional[int] = None,
     offset: int = 0,
 ):
-    qs = User.objects.select_related("company").all()
+    qs = User.objects.select_related("company").prefetch_related(
+        Prefetch(
+            "user_roles",
+            queryset=UserRole.objects.select_related("role").order_by("role__name"),
+        )
+    )
     if company_id:
         qs = qs.filter(company_id=company_id)
     if is_active is not None:
