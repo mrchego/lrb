@@ -6,9 +6,9 @@ from lrb.staff.services.demote_staff_from_login import demote_staff_from_login
 
 
 @transaction.atomic
-def set_staff_login_access(*, user_id, can_login,company_id):
-    user = get_user(user_id=user_id)
-    if not user or str(user.company_id) != str(company_id):
+def set_staff_login_access(*, user_id, can_login, company_id):
+    user = get_user(user_id=user_id, company_id=company_id)
+    if not user:
         raise ApplicationError(
             message="Staff member not found.", code=ErrorCode.USER_NOT_FOUND
         )

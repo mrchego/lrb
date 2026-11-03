@@ -1,9 +1,11 @@
 from __future__ import annotations
-from typing import Optional
-from django.db import IntegrityError, transaction
+
+from typing import TYPE_CHECKING, Optional
+
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+
 from lrb.accounts.selectors.get_user import get_user
-from lrb.company.models.company import Company
 from lrb.core.exceptions import (
     AppValidationError,
     ApplicationError,
@@ -12,7 +14,6 @@ from lrb.core.exceptions import (
 )
 from lrb.core.validators.email import validate_email
 from lrb.core.validators.phone import validate_phone_number
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lrb.accounts.models import User
@@ -22,14 +23,14 @@ if TYPE_CHECKING:
 def update_user(
     *,
     user_id: str,
+    company_id: str,
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
     phone: Optional[str] = None,
     avatar=None,
-    company: Optional[Company] = None,
     email: Optional[str] = None,
 ) -> User:
-    user = get_user(user_id=user_id)
+    user = get_user(user_id=user_id, company_id=company_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
 
@@ -40,8 +41,6 @@ def update_user(
     if phone is not None:
         validate_phone_number(phone)
         user.phone = phone
-    if company is not None:
-        user.company = company
     if avatar is not None:
         user.avatar = avatar
     if email is not None:

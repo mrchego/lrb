@@ -1,7 +1,12 @@
 from lrb.authorization.models.user_role import UserPermissionOverride
+from lrb.core.tenancy import require_company_id
 
-def list_user_overrides(*, user_id: str):
-    return UserPermissionOverride.objects.filter(user_id=user_id).select_related("permission")
+
+def list_user_overrides(*, user_id: str, company_id: str):
+    company_id = require_company_id(company_id)
+    return UserPermissionOverride.objects.filter(
+        user_id=user_id, user__company_id=company_id
+    ).select_related("permission")
 
 
 # Teaching: list_user_overrides

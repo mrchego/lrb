@@ -1,17 +1,19 @@
-from lrb.accounts.services.lock_user import lock_user
+from datetime import timedelta
+
+from django.utils import timezone
+
 from lrb.core.constants import LOCKOUT_DURATION_MINUTES, MAX_FAILED_ATTEMPTS
 
 
 def handle_failed_login(*, user):
     if not user:
         return
-
     user.failed_login_attempts += 1
-    user.save(update_fields=["failed_login_attempts"])
-
+    fields = ["failed_login_attempts"]
     if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
-        lock_user(user_id=user.id, duration_minutes=LOCKOUT_DURATION_MINUTES)
-
+        user.locked_until = timezone.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        fields.append("locked_until")
+    user.save(update_fields=fields)
 
 
 # 1. Purpose

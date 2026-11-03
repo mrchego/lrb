@@ -25,6 +25,7 @@ from lrb.core.exceptions import AppPermissionDeniedError
 class RoleQuery:
     @strawberry.field
     def permissions(self, info: strawberry.Info) -> List[PermissionType]:
+        get_current_user_or_raise(info, message="Authentication required.")
         return list(list_permissions())
 
     @strawberry.field
@@ -46,7 +47,7 @@ class RoleQuery:
             raise AppPermissionDeniedError(
                 message="You can only view your own permissions."
             )
-        user = get_user(user_id=user_id)
+        user = get_user(user_id=user_id, company_id=str(current.company_id))
         codenames = get_user_permission_codenames(user=user) if user else set()
         return EffectivePermissionType(user_id=user_id, codenames=sorted(codenames))
 
@@ -65,11 +66,15 @@ class RoleQuery:
             raise AppPermissionDeniedError(
                 "You can only view your own permission overrides."
             )
-        return list(list_user_overrides(user_id=user_id))
+        return list(
+            list_user_overrides(
+                user_id=user_id, company_id=str(current.company_id)
+            )
+        )
 
     @strawberry.field
     def has_permission(self, info: strawberry.Info, codename: str) -> bool:
-        current = get_current_user_or_raise(info, message="Authentication required")
+        current = get_current_user_or_raise(info, message="Authentication required.")
         return user_has_permission(user=current, codename=codename)
 
 

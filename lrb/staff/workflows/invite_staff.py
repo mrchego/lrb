@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.utils import timezone
 
+from lrb.accounts.selectors.get_user_by_email import get_user_by_email
 from lrb.accounts.services.create_user import create_user
 from lrb.authorization.models.user_role import UserRole
 from lrb.core.constants import INVITATION_EXPIRY_DAYS
@@ -21,20 +22,18 @@ def invite_staff(
     can_login=True,
     role=None,
 ):
-    from lrb.accounts.selectors.get_user_by_email import get_user_by_email
-
-    existing = get_user_by_email(email=email)
-    if existing and existing.is_active:
+    if get_user_by_email(email=email):
         raise ApplicationError(
-            message="User with this email already active.",
+            message="This email address cannot be invited.",
             code=ErrorCode.USER_ALREADY_EXISTS,
         )
-
     if can_login and role is None:
         raise ApplicationError(
             message="A role is required to grant login access.",
             code=ErrorCode.VALIDATION_ERROR,
         )
+    if role is not None and role.company_id != company.id:
+        raise ApplicationError(message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND)
 
     user = create_user(
         email=email,
@@ -55,11 +54,12 @@ def invite_staff(
             company=company,
             invited_by=invited_by,
             role=role,
-            expires_at=timezone.now() + timezone.timedelta(days=INVITATION_EXPIRY_DAYS),
+            expires_at=timezone.now()
+            + timezone.timedelta(days=INVITATION_EXPIRY_DAYS),
         )
         send_invitation_email(request=request, invitation=invitation)
-
     return user, invitation
+
 
 
 # Yes — you have the right idea. The important thing is that None is the initial value, and later the variable can be reassigned to an actual Invitation object.

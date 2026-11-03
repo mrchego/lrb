@@ -6,12 +6,14 @@ from lrb.core.exceptions import (
     BusinessRuleViolationError,
     ErrorCode,
 )
-from lrb.products.models import Product
+from lrb.products.selectors.get_product import get_product
 
 
 @transaction.atomic
-def update_product(*, product_id, name=None, sku=None, price=None, is_active=None):
-    product = Product.objects.filter(pk=product_id).first()
+def update_product(
+    *, product_id, company_id, name=None, sku=None, price=None, is_active=None
+):
+    product = get_product(product_id=product_id, company_id=company_id, for_update=True)
     if not product:
         raise ApplicationError(
             message="Product not found.", code=ErrorCode.VALIDATION_ERROR
@@ -48,6 +50,8 @@ def update_product(*, product_id, name=None, sku=None, price=None, is_active=Non
                 code=ErrorCode.BUSINESS_RULE,
             )
         raise
+    return product
+
 
 
 # 1. Purpose

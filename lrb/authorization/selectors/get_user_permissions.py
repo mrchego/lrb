@@ -16,6 +16,7 @@ def invalidate_role_permissions_cache(*, role) -> None:
     if user_ids:
         cache.delete_many([user_permissions_cache_key(user_id=uid) for uid in user_ids])
 
+
 def get_user_permission_codenames(*, user) -> set[str]:
     from lrb.authorization.models.user_role import UserPermissionOverride, UserRole
 
@@ -24,10 +25,15 @@ def get_user_permission_codenames(*, user) -> set[str]:
     if cached is not None:
         return cached
 
-    role_perms = set(UserRole.objects.filter(user=user).values_list("role__permissions__codename", flat=True))
+    role_perms = set(
+        UserRole.objects.filter(user=user, role__company_id=user.company_id)
+        .values_list("role__permissions__codename", flat=True)
+    )
     role_perms.discard(None)
 
-    overrides = UserPermissionOverride.objects.filter(user=user).select_related("permission")
+    overrides = UserPermissionOverride.objects.filter(user=user).select_related(
+        "permission"
+    )
     for o in overrides:
         if o.is_granted:
             role_perms.add(o.permission.codename)

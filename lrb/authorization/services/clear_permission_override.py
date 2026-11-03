@@ -1,13 +1,24 @@
 from django.db import transaction
 
+from lrb.accounts.selectors.get_user import get_user
 from lrb.authorization.models.user_role import UserPermissionOverride
-from lrb.authorization.selectors.get_user_permissions import invalidate_user_permissions_cache
+from lrb.authorization.selectors.get_user_permissions import (
+    invalidate_user_permissions_cache,
+)
+from lrb.core.exceptions import ApplicationError, ErrorCode
 
 
 @transaction.atomic
-def clear_permission_override(*, user_id:str, permission_codename:str) -> bool:
-    UserPermissionOverride.objects.filter(user_id=user_id, permission__codename=permission_codename).delete()
-    invalidate_user_permissions_cache(user_id=user_id)
+def clear_permission_override(
+    *, user_id: str, company_id: str, permission_codename: str
+) -> bool:
+    user = get_user(user_id=user_id, company_id=company_id)
+    if not user:
+        raise ApplicationError(message="User not found.", code=ErrorCode.USER_NOT_FOUND)
+    UserPermissionOverride.objects.filter(
+        user=user, permission__codename=permission_codename
+    ).delete()
+    transaction.on_commit(lambda: invalidate_user_permissions_cache(user_id=user.id))
     return True
 
 # Teaching: clear_permission_override

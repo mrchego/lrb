@@ -1,21 +1,24 @@
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.db import transaction
 from django.utils import timezone
+
 from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.services.ownership_guard import assert_not_last_owner
 from lrb.core.exceptions import ApplicationError, ErrorCode
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lrb.accounts.models import User
 
 
 @transaction.atomic
-def lock_user(*, user_id: str, duration_minutes: int = 15) -> User:
-    user = get_user(user_id=user_id)
+def lock_user(*, user_id: str, company_id: str, duration_minutes: int = 15) -> User:
+    user = get_user(user_id=user_id, company_id=company_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
-    assert_not_last_owner(user=user, company_id=str(user.company_id), action="locked")
+    assert_not_last_owner(user=user, company_id=company_id, action="locked")
     user.locked_until = timezone.now() + timezone.timedelta(minutes=duration_minutes)
     user.save(update_fields=["locked_until"])
     return user

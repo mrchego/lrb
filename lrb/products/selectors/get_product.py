@@ -1,10 +1,18 @@
 from typing import Optional
 
+from lrb.core.tenancy import require_company_id
 from lrb.products.models import Product
 
 
-def get_product(*, product_id: str) -> Optional[Product]:
-    return Product.objects.filter(pk=product_id).first()
+def get_product(
+    *, product_id: str, company_id: str, for_update: bool = False
+) -> Optional[Product]:
+    company_id = require_company_id(company_id)
+    qs = Product.objects.filter(pk=product_id, company_id=company_id)
+    if for_update:
+        qs = qs.select_for_update()
+    return qs.first()
+
 
 # 1. Purpose
 

@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+
 from lrb.core.models.base import BaseModel
 
 
@@ -14,6 +16,19 @@ class UserRole(BaseModel):
         constraints = [
             models.UniqueConstraint(fields=["user", "role"], name="unique_user_role")
         ]
+
+    def _assert_same_company(self) -> None:
+        if self.user_id and self.role_id and self.user.company_id != self.role.company_id:
+            raise ValidationError(
+                "A role can only be assigned to a user of the same company."
+            )
+
+    def clean(self):
+        self._assert_same_company()
+
+    def save(self, *args, **kwargs):
+        self._assert_same_company()
+        super().save(*args, **kwargs)
 
 
 class UserPermissionOverride(BaseModel):

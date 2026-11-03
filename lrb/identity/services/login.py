@@ -7,7 +7,6 @@ from lrb.identity.services.successful_login import handle_successful_login
 
 def login(*, email: str, password: str):
     user = get_user_by_email(email=email)
-
     try:
         authenticated_user = authenticate_credentials(email=email, password=password)
     except ApplicationError as e:
@@ -26,6 +25,12 @@ def login(*, email: str, password: str):
     if not authenticated_user.is_active:
         raise ApplicationError(
             message="Account inactive", code=ErrorCode.ACCOUNT_INACTIVE
+        )
+
+    company = authenticated_user.company
+    if company is not None and not company.is_active:
+        raise ApplicationError(
+            message="Account disabled.", code=ErrorCode.ACCOUNT_DISABLED
         )
 
     handle_successful_login(user=authenticated_user)

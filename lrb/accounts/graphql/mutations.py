@@ -1,41 +1,65 @@
 import strawberry
+
 from lrb.accounts.graphql.inputs import (
-    UpdateProfileInput,
     AdminUpdateUserInput,
-    UserIdInput,
-    LockUserInput,
-    BulkUserIdsInput,
     BulkLockUserInput,
-    PromoteToOwnerInput,
+    BulkUserIdsInput,
     DemoteOwnerInput,
+    LockUserInput,
+    PromoteToOwnerInput,
+    UpdateProfileInput,
+    UserIdInput,
 )
 from lrb.accounts.graphql.payloads import UserMutationPayload
-from lrb.accounts.services.bulk_deactivate_users import bulk_deactivate_users
-from lrb.core.graphql.payloads import (
-    BulkActionPayload,
-    to_bulk_payload,
-    SimpleMutationPayload,
-)
 from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
-from lrb.accounts.services.update_user import update_user
 from lrb.accounts.services.activate_user import activate_user
+from lrb.accounts.services.bulk_activate_users import (
+    bulk_activate_users as bulk_activate_users_action,
+)
+from lrb.accounts.services.bulk_deactivate_users import bulk_deactivate_users
+from lrb.accounts.services.bulk_delete_users import (
+    bulk_delete_users as bulk_delete_users_action,
+)
+from lrb.accounts.services.bulk_force_password_reset import (
+    bulk_force_password_reset as bulk_force_password_reset_action,
+)
+from lrb.accounts.services.bulk_lock_users import (
+    bulk_lock_users as bulk_lock_users_action,
+)
+from lrb.accounts.services.bulk_restore_users import (
+    bulk_restore_users as bulk_restore_users_action,
+)
+from lrb.accounts.services.bulk_unlock_users import (
+    bulk_unlock_users as bulk_unlock_users_action,
+)
 from lrb.accounts.services.deactivate_user import deactivate_user
 from lrb.accounts.services.delete_user import delete_user
-from lrb.accounts.services.lock_user import lock_user
-from lrb.accounts.services.unlock_user import unlock_user
-from lrb.accounts.services.force_password_reset import force_password_reset
-from lrb.accounts.services.bulk_activate_users import bulk_activate_users as bulk_activate_users_action
-from lrb.accounts.services.bulk_delete_users import bulk_delete_users as bulk_delete_users_action
-from lrb.accounts.services.bulk_lock_users import bulk_lock_users as bulk_lock_users_action
-from lrb.accounts.services.bulk_unlock_users import bulk_unlock_users as bulk_unlock_users_action
-from lrb.accounts.services.bulk_force_password_reset import bulk_force_password_reset as bulk_force_password_reset_action
-from lrb.accounts.services.restore_user import restore_user
-from lrb.accounts.services.bulk_restore_users import bulk_restore_users as bulk_restore_users_action
-from lrb.accounts.services.promote_to_owner import promote_to_owner
 from lrb.accounts.services.demote_owner import demote_owner
+from lrb.accounts.services.force_password_reset import force_password_reset
+from lrb.accounts.services.lock_user import lock_user
+from lrb.accounts.services.promote_to_owner import promote_to_owner
+from lrb.accounts.services.restore_user import restore_user
+from lrb.accounts.services.unlock_user import unlock_user
+from lrb.accounts.services.update_user import update_user
 from lrb.authorization.decorators import require_owner
 from lrb.core.exceptions import ApplicationError
 from lrb.core.graphql.errors import format_application_error
+from lrb.core.graphql.payloads import (
+    BulkActionPayload,
+    SimpleMutationPayload,
+    to_bulk_payload,
+)
+
+
+def _profile_kwargs(input) -> dict:
+    """Only the fields the caller actually sent (None means 'not provided')."""
+    fields = {
+        "first_name": input.first_name,
+        "last_name": input.last_name,
+        "phone": input.phone,
+        "avatar": input.avatar,
+    }
+    return {k: v for k, v in fields.items() if v is not None}
 
 
 @strawberry.type
@@ -46,17 +70,11 @@ class UserMutation:
     ) -> UserMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            kwargs = {
-                k: v
-                for k, v in {
-                    "first_name": input.first_name,
-                    "last_name": input.last_name,
-                    "phone": input.phone,
-                    "avatar": input.avatar,
-                }.items()
-                if v is not None
-            }
-            user = update_user(user_id=current.id, **kwargs)
+            user = update_user(
+                user_id=current.id,
+                company_id=str(current.company_id),
+                **_profile_kwargs(input),
+            )
             return UserMutationPayload(success=True, user=user)
         except ApplicationError as e:
             return UserMutationPayload(
@@ -70,17 +88,11 @@ class UserMutation:
     ) -> UserMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            kwargs = {
-                k: v
-                for k, v in {
-                    "first_name": input.first_name,
-                    "last_name": input.last_name,
-                    "phone": input.phone,
-                    "avatar": input.avatar,
-                }.items()
-                if v is not None
-            }
-            user = update_user(user_id=input.user_id, **kwargs)
+            user = update_user(
+                user_id=input.user_id,
+                company_id=str(current.company_id),
+                **_profile_kwargs(input),
+            )
             return UserMutationPayload(success=True, user=user)
         except ApplicationError as e:
             return UserMutationPayload(
@@ -94,7 +106,7 @@ class UserMutation:
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            activate_user(user_id=input.user_id)
+            activate_user(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -108,7 +120,7 @@ class UserMutation:
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            deactivate_user(user_id=input.user_id)
+            deactivate_user(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -122,7 +134,7 @@ class UserMutation:
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            delete_user(user_id=input.user_id)
+            delete_user(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -136,7 +148,11 @@ class UserMutation:
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            lock_user(user_id=input.user_id, duration_minutes=input.duration_minutes)
+            lock_user(
+                user_id=input.user_id,
+                company_id=str(current.company_id),
+                duration_minutes=input.duration_minutes,
+            )
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -150,7 +166,7 @@ class UserMutation:
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            unlock_user(user_id=input.user_id)
+            unlock_user(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -164,7 +180,51 @@ class UserMutation:
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            force_password_reset(user_id=input.user_id)
+            force_password_reset(
+                user_id=input.user_id, company_id=str(current.company_id)
+            )
+            return SimpleMutationPayload(success=True)
+        except ApplicationError as e:
+            return SimpleMutationPayload(
+                success=False, errors=[format_application_error(e)]
+            )
+
+    @strawberry.mutation
+    @require_owner()
+    def restore_user(
+        self, info: strawberry.Info, input: UserIdInput
+    ) -> SimpleMutationPayload:
+        current = get_current_user_or_raise(info)
+        try:
+            restore_user(user_id=input.user_id, company_id=str(current.company_id))
+            return SimpleMutationPayload(success=True)
+        except ApplicationError as e:
+            return SimpleMutationPayload(
+                success=False, errors=[format_application_error(e)]
+            )
+
+    @strawberry.mutation
+    @require_owner()
+    def promote_to_owner(
+        self, info: strawberry.Info, input: PromoteToOwnerInput
+    ) -> SimpleMutationPayload:
+        current = get_current_user_or_raise(info)
+        try:
+            promote_to_owner(user_id=input.user_id, company_id=str(current.company_id))
+            return SimpleMutationPayload(success=True)
+        except ApplicationError as e:
+            return SimpleMutationPayload(
+                success=False, errors=[format_application_error(e)]
+            )
+
+    @strawberry.mutation
+    @require_owner()
+    def demote_owner(
+        self, info: strawberry.Info, input: DemoteOwnerInput
+    ) -> SimpleMutationPayload:
+        current = get_current_user_or_raise(info)
+        try:
+            demote_owner(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -178,8 +238,7 @@ class UserMutation:
     ) -> BulkActionPayload:
         current = get_current_user_or_raise(info)
         result = bulk_activate_users_action(
-            user_ids=input.user_ids,
-            company_id=str(current.company_id),
+            user_ids=input.user_ids, company_id=str(current.company_id)
         )
         return to_bulk_payload(result)
 
@@ -230,8 +289,7 @@ class UserMutation:
     ) -> BulkActionPayload:
         current = get_current_user_or_raise(info)
         result = bulk_unlock_users_action(
-            user_ids=input.user_ids,
-            company_id=str(current.company_id),
+            user_ids=input.user_ids, company_id=str(current.company_id)
         )
         return to_bulk_payload(result)
 
@@ -250,60 +308,14 @@ class UserMutation:
 
     @strawberry.mutation
     @require_owner()
-    def restore_user(
-        self, info: strawberry.Info, input: UserIdInput
-    ) -> SimpleMutationPayload:
-        current = get_current_user_or_raise(info)
-        try:
-            restore_user(user_id=input.user_id)
-            return SimpleMutationPayload(success=True)
-        except ApplicationError as e:
-            return SimpleMutationPayload(
-                success=False, errors=[format_application_error(e)]
-            )
-
-    @strawberry.mutation
-    @require_owner()
     def bulk_restore_users(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
         current = get_current_user_or_raise(info)
         result = bulk_restore_users_action(
-            user_ids=input.user_ids,
-            company_id=str(current.company_id),
+            user_ids=input.user_ids, company_id=str(current.company_id)
         )
         return to_bulk_payload(result)
-
-    @strawberry.mutation
-    @require_owner()
-    def promote_to_owner(
-        self, info: strawberry.Info, input: PromoteToOwnerInput
-    ) -> SimpleMutationPayload:
-        current = get_current_user_or_raise(info)
-        try:
-            promote_to_owner(
-                user_id=input.user_id,
-            )
-            return SimpleMutationPayload(success=True)
-        except ApplicationError as e:
-            return SimpleMutationPayload(
-                success=False, errors=[format_application_error(e)]
-            )
-
-    @strawberry.mutation
-    @require_owner()
-    def demote_owner(
-        self, info: strawberry.Info, input: DemoteOwnerInput
-    ) -> SimpleMutationPayload:
-        current = get_current_user_or_raise(info)
-        try:
-            demote_owner(user_id=input.user_id, company_id=str(current.company_id))
-            return SimpleMutationPayload(success=True)
-        except ApplicationError as e:
-            return SimpleMutationPayload(
-                success=False, errors=[format_application_error(e)]
-            )
-
 
 
 # Teaching: UserMutation (GraphQL Mutation Class)

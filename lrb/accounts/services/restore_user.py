@@ -1,16 +1,19 @@
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.db import transaction
+
 from lrb.accounts.selectors.get_user import get_user
 from lrb.core.exceptions import ApplicationError, ErrorCode
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lrb.accounts.models import User
 
 
 @transaction.atomic
-def restore_user(*, user_id: str) -> User:
-    user = get_user(user_id=user_id)
+def restore_user(*, user_id: str, company_id: str) -> User:
+    user = get_user(user_id=user_id, company_id=company_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
     user.is_active = True

@@ -1,12 +1,14 @@
 from typing import Iterable
-from django.db.models import QuerySet
-from lrb.accounts.models import User
 
-def get_users_by_ids(*, user_ids: Iterable[str], company_id: str | None) -> QuerySet[User]:
-    qs = User.objects.filter(pk__in=user_ids)
-    if company_id:
-        qs = qs.filter(company_id=company_id)
-    return qs
+from django.db.models import QuerySet
+
+from lrb.accounts.models import User
+from lrb.core.tenancy import require_company_id
+
+
+def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[User]:
+    company_id = require_company_id(company_id)
+    return User.objects.filter(pk__in=user_ids, company_id=company_id)
 
 
 # 1. Purpose — Why this exists

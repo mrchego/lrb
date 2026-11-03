@@ -1,15 +1,25 @@
 from functools import wraps
-from lrb.core.exceptions import AppPermissionDeniedError
+
 from lrb.authorization.selectors.user_has_permission import user_has_permission
+from lrb.core.exceptions import AppPermissionDeniedError
+from lrb.core.tenancy import assert_company_active
 
 
-def require_permission(codename):
+def _tenant_user(info):
+    user = info.context.request.user
+    if not user.is_authenticated:
+        raise AppPermissionDeniedError("Authentication required.")
+    if not user.company_id:
+        raise AppPermissionDeniedError("No company context.")
+    assert_company_active(user)
+    return user
+
+
+def require_permission(codename: str):
     def decorator(resolver):
         @wraps(resolver)
         def wrapper(self, info, *args, **kwargs):
-            user = info.context.request.user
-            if not user.is_authenticated:
-                raise AppPermissionDeniedError("Authentication required.")
+            user = _tenant_user(info)
             if not user_has_permission(user=user, codename=codename):
                 raise AppPermissionDeniedError(f"Missing permission: {codename}")
             return resolver(self, info, *args, **kwargs)
@@ -23,9 +33,7 @@ def require_owner():
     def decorator(resolver):
         @wraps(resolver)
         def wrapper(self, info, *args, **kwargs):
-            user = info.context.request.user
-            if not user.is_authenticated:
-                raise AppPermissionDeniedError("Authentication required.")
+            user = _tenant_user(info)
             if not user.is_superuser:
                 raise AppPermissionDeniedError(
                     "Only the company owner can perform this action."

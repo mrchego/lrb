@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from typing import Optional
+
 import strawberry
+
 from lrb.accounts.graphql.types import UserConnection, UserType
 from lrb.accounts.selectors.get_current_user import get_current_user
 from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
@@ -18,7 +21,8 @@ class UserQuery:
     @strawberry.field
     @require_owner()
     def user(self, info: strawberry.Info, user_id: strawberry.ID) -> Optional[UserType]:
-        return get_user(user_id=user_id)
+        current = get_current_user_or_raise(info)
+        return get_user(user_id=user_id, company_id=str(current.company_id))
 
     @strawberry.field
     @require_owner()
@@ -41,7 +45,6 @@ class UserQuery:
             offset=offset,
         )
         return UserConnection(items=items, total_count=total_count)
-
 
 
 # from __future__ import annotations

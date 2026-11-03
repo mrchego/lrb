@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from lrb.users.tests.factories import UserFactory
+from lrb.accounts.tests.factories import UserFactory
 
 if TYPE_CHECKING:
-    from lrb.users.models import User
+    from lrb.accounts.models import User
 
 
 @pytest.fixture(autouse=True)

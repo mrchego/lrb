@@ -1,13 +1,11 @@
 from django.utils import timezone
 
-from lrb.accounts.services.unlock_user import unlock_user
-
 
 def handle_successful_login(*, user):
-    if user.failed_login_attempts > 0 or user.locked_until:
-        unlock_user(user_id=user.id)
+    user.failed_login_attempts = 0
+    user.locked_until = None
     user.last_login = timezone.now()
-    user.save(update_fields=["last_login"])
+    user.save(update_fields=["failed_login_attempts", "locked_until", "last_login"])
 
 
 # 1. Purpose

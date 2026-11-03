@@ -1,10 +1,13 @@
 from typing import Optional
 
+from lrb.core.tenancy import require_company_id
 from lrb.products.models import Product
 
 
-def get_product_by_sku(*, sku: str, company_id:str) -> Optional[Product]:
+def get_product_by_sku(*, sku: str, company_id: str) -> Optional[Product]:
+    company_id = require_company_id(company_id)
     return Product.objects.filter(sku=sku, company_id=company_id).first()
+
 
 # 1. Purpose
 

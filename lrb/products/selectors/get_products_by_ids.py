@@ -1,13 +1,13 @@
-from typing import Iterable, Optional
+from typing import Iterable
 
+from lrb.core.tenancy import require_company_id
 from lrb.products.models import Product
 
 
-def get_products_by_ids(*, product_ids:Iterable[str], company_id: Optional[str] = None ):
-    qs = Product.objects.filter(pk__in=product_ids)
-    if company_id:
-        qs = qs.filter(company_id=company_id)
-    return qs
+def get_products_by_ids(*, product_ids: Iterable[str], company_id: str):
+    company_id = require_company_id(company_id)
+    return Product.objects.filter(pk__in=product_ids, company_id=company_id)
+
 
 # 1. Purpose
 

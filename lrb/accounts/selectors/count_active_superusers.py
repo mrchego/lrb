@@ -1,7 +1,9 @@
 from typing import Optional, Iterable
 from lrb.accounts.models import User
+from lrb.core.tenancy import require_company_id
 
 def count_active_superusers(*, company_id: str, exclude_ids:Optional[Iterable[str]] = None) -> int:
+    company_id = require_company_id(company_id)
     qs = User.objects.filter(company_id=company_id, is_superuser=True, is_active=True)
     if exclude_ids:
         qs = qs.exclude(pk__in=exclude_ids)

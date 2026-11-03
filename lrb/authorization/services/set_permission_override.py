@@ -1,23 +1,30 @@
 from django.db import transaction
-
-from lrb.accounts.selectors import get_user
+from lrb.accounts.selectors.get_user import get_user
 from lrb.authorization.models.permission import Permission
 from lrb.authorization.models.user_role import UserPermissionOverride
-from lrb.authorization.selectors.get_user_permissions import invalidate_user_permissions_cache
+from lrb.authorization.selectors.get_user_permissions import (
+    invalidate_user_permissions_cache,
+)
 from lrb.core.exceptions import ApplicationError, ErrorCode
 
 
 @transaction.atomic
-def set_permission_override(*, user_id:str, permission_codename: str, is_granted: bool) -> bool:
-    user = get_user(user_id=user_id)
+def set_permission_override(
+    *, user_id: str, company_id: str, permission_codename: str, is_granted: bool
+) -> bool:
+    user = get_user(user_id=user_id, company_id=company_id)
     if not user:
         raise ApplicationError(message="User not found.", code=ErrorCode.USER_NOT_FOUND)
     permission = Permission.objects.filter(codename=permission_codename).first()
     if not permission:
-        raise ApplicationError(message="Permission not found.", code=ErrorCode.VALIDATION_ERROR)
+        raise ApplicationError(
+            message="Permission not found.", code=ErrorCode.VALIDATION_ERROR
+        )
 
-    UserPermissionOverride.objects.update_or_create(user=user, permission=permission, defaults={"is_granted":is_granted})
-    invalidate_user_permissions_cache(user_id=user.id)
+    UserPermissionOverride.objects.update_or_create(
+        user=user, permission=permission, defaults={"is_granted": is_granted}
+    )
+    transaction.on_commit(lambda: invalidate_user_permissions_cache(user_id=user.id))
     return True
 
 

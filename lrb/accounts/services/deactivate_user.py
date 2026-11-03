@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 from django.db import transaction
+
 from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.services.ownership_guard import assert_not_last_owner
 from lrb.core.exceptions import ApplicationError, ErrorCode
@@ -10,13 +13,11 @@ if TYPE_CHECKING:
 
 
 @transaction.atomic
-def deactivate_user(*, user_id: str) -> User:
-    user = get_user(user_id=user_id)
+def deactivate_user(*, user_id: str, company_id: str) -> User:
+    user = get_user(user_id=user_id, company_id=company_id)
     if user is None:
         raise ApplicationError("User Not Found", code=ErrorCode.USER_NOT_FOUND)
-    assert_not_last_owner(
-        user=user, company_id=str(user.company_id), action="deactivate"
-    )
+    assert_not_last_owner(user=user, company_id=company_id, action="deactivate")
     user.is_active = False
     user.save(update_fields=["is_active"])
     return user

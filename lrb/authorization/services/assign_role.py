@@ -1,7 +1,8 @@
 from django.db import IntegrityError, transaction
+
 from lrb.accounts.selectors.get_user import get_user
-from lrb.authorization.models.role import Role
 from lrb.authorization.models.user_role import UserRole
+from lrb.authorization.selectors.get_role import get_role
 from lrb.authorization.selectors.get_user_permissions import (
     invalidate_user_permissions_cache,
 )
@@ -10,8 +11,8 @@ from lrb.core.exceptions import ApplicationError, ErrorCode
 
 @transaction.atomic
 def assign_role(*, user_id, role_id, company_id):
-    user = get_user(user_id=user_id)
-    if not user or str(user.company_id) != str(company_id):
+    user = get_user(user_id=user_id, company_id=company_id)
+    if not user:
         raise ApplicationError(message="User not found.", code=ErrorCode.USER_NOT_FOUND)
 
     if not user.can_login:
@@ -20,7 +21,7 @@ def assign_role(*, user_id, role_id, company_id):
             code=ErrorCode.BUSINESS_RULE,
         )
 
-    role = Role.objects.filter(pk=role_id, company_id=company_id).first()
+    role = get_role(role_id=role_id, company_id=company_id)
     if not role:
         raise ApplicationError(message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND)
 

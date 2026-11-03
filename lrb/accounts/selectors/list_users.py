@@ -1,27 +1,33 @@
 from typing import Optional
+
 from django.db.models import Prefetch, Q
+
 from lrb.accounts.models import User
 from lrb.authorization.models.user_role import UserRole
 from lrb.core.pagination import paginate_queryset
+from lrb.core.tenancy import require_company_id
 
 
 def list_users(
     *,
-    company_id=None,
+    company_id: str,
     is_active: Optional[bool] = None,
     can_login: Optional[bool] = None,
     search: Optional[str] = None,
     limit: Optional[int] = None,
     offset: int = 0,
 ):
-    qs = User.objects.select_related("company").prefetch_related(
-        Prefetch(
-            "user_roles",
-            queryset=UserRole.objects.select_related("role").order_by("role__name"),
+    company_id = require_company_id(company_id)
+    qs = (
+        User.objects.filter(company_id=company_id)
+        .select_related("company")
+        .prefetch_related(
+            Prefetch(
+                "user_roles",
+                queryset=UserRole.objects.select_related("role").order_by("role__name"),
+            )
         )
     )
-    if company_id:
-        qs = qs.filter(company_id=company_id)
     if is_active is not None:
         qs = qs.filter(is_active=is_active)
     if can_login is not None:

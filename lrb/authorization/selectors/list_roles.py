@@ -1,7 +1,9 @@
 from lrb.authorization.models.role import Role
+from lrb.core.tenancy import require_company_id
 
 
 def list_roles(*, company_id: str):
+    company_id = require_company_id(company_id)
     return Role.objects.filter(company_id=company_id).prefetch_related(
         "permissions", "user_roles__user"
     )

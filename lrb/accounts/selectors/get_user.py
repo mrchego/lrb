@@ -1,9 +1,12 @@
 from typing import Optional
+
 from lrb.accounts.models import User
+from lrb.core.tenancy import require_company_id
 
-def get_user(*, user_id: str) -> Optional[User]:
-    return User.objects.filter(pk=user_id).first()
 
+def get_user(*, user_id: str, company_id: str) -> Optional[User]:
+    company_id = require_company_id(company_id)
+    return User.objects.filter(pk=user_id, company_id=company_id).first()
 
 
 

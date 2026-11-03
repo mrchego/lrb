@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import strawberry
 from lrb.accounts.selectors.get_current_user import get_current_user
 from lrb.core.exceptions import AppPermissionDeniedError
+from lrb.core.tenancy import assert_company_active
 
 if TYPE_CHECKING:
     from lrb.accounts.models import User
@@ -12,6 +13,7 @@ def get_current_user_or_raise(info: strawberry.Info ,*,
     current = get_current_user(info)
     if not current or not current.company_id:
         raise AppPermissionDeniedError(message=message)
+    assert_company_active(current)
     return current
 
 
