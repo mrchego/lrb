@@ -10,8 +10,12 @@ from typing import TYPE_CHECKING
 
 from lrb.core.exceptions import AppPermissionDeniedError
 
+from django.db import connection
+from django_tenants.utils import get_public_schema_name
+
 if TYPE_CHECKING:
     from lrb.accounts.models import User
+
 
 
 def require_company_id(company_id) -> str:
@@ -24,8 +28,25 @@ def require_company_id(company_id) -> str:
     return str(company_id)
 
 
+def get_current_tenant():
+    tenant = getattr(connection, "tenant", None)
+    if tenant is None or connection.schema_name == get_public_schema_name():
+        raise AppPermissionDeniedError(message="No company context.")
+    return tenant
+
+
+def require_public_schema() -> None:
+    if connection.schema_name != get_public_schema_name():
+        raise AppPermissionDeniedError(message="Only available on the platform site.")
+
+
+def assert_user_in_current_tenant(user) -> None:
+    """Lock two: the user's company must be the company whose schema is active."""
+    if str(user.company_id) != str(get_current_tenant().pk):
+        raise AppPermissionDeniedError(message="No company context.")
+
 def assert_company_active(user: "User") -> None:
-    """A deactivated company's users (and live sessions) lose all access."""
+    assert_user_in_current_tenant(user)  # <-- new first line
     company = user.company
     if company is None or not company.is_active:
         raise AppPermissionDeniedError(message="This company is deactivated.")

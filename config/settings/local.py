@@ -23,8 +23,11 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "",
+        "KEY_FUNCTION": "django_tenants.cache.make_key",
+        "REVERSE_KEY_FUNCTION": "django_tenants.cache.reverse_key",
     },
 }
+
 
 # EMAIL
 # ------------------------------------------------------------------------------
@@ -78,7 +81,6 @@ CELERY_TASK_EAGER_PROPAGATES = True
 
 CORS_ALLOW_CREDENTIALS = True
 
-
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -88,7 +90,6 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://.*\.localhost:3000$",
 ]
 
-
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://*.localhost:3000",
@@ -96,20 +97,12 @@ CSRF_TRUSTED_ORIGINS = [
 
 CORS_ALLOW_HEADERS = [
     *default_headers,
-    "x-tenant-slug",
+    "apollo-require-preflight",
 ]
 
-CORS_ALLOW_METHODS = [
-    "GET",
-    "POST",
-    "PUT",
-    "PATCH",
-    "DELETE",
-    "OPTIONS",
-]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
-
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SAMESITE = "Lax"

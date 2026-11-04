@@ -4,7 +4,7 @@ USER_PERMISSIONS_CACHE_TTL = 300
 
 
 def user_permissions_cache_key(*, user_id: str) -> str:
-    return f"user_perm: {user_id}"
+    return f"user_perm:{user_id}"
 
 
 def invalidate_user_permissions_cache(*, user_id: str) -> None:

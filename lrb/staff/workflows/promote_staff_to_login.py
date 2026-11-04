@@ -22,8 +22,7 @@ def promote_staff_to_login(*, user_id, company, role, invited_by, request):
         raise ApplicationError(
             message="Staff member not found.", code=ErrorCode.USER_NOT_FOUND
         )
-    # Defence in depth: the resolver already looks the role up inside the
-    # company, but the workflow must not trust its caller.
+
     if role.company_id != company.id:
         raise ApplicationError(message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND)
     if user.can_login:

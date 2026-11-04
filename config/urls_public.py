@@ -8,7 +8,7 @@ from django.views import defaults as default_views
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from strawberry.django.views import GraphQLView
-from config.schema import schema
+from config.schema_public import schema
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),

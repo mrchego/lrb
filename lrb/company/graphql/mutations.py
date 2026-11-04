@@ -25,34 +25,6 @@ from lrb.core.graphql.errors import format_application_error
 @strawberry.type
 class CompanyMutation:
     @strawberry.mutation
-    def register_company(
-        self, info: strawberry.Info, input: RegisterCompanyInput
-    ) -> CompanyMutationPayload:
-        # No auth check — this is the bootstrap step, before any user exists.
-        # create_company already refuses if a company has already been registered.
-        try:
-            company, admin = register_company_workflow(
-                company_name=input.name,
-                company_email=input.email,
-                company_phone=input.phone,
-                company_country=input.country,
-                company_city=input.city,
-                company_address=input.address,
-                company_logo_light=input.logo_light,
-                company_logo_dark=input.logo_dark,
-                admin_email=input.admin_email,
-                admin_password=input.admin_password,
-                admin_first_name=input.admin_first_name,
-                admin_last_name=input.admin_last_name,
-                request=info.context.request,
-            )
-            return CompanyMutationPayload(success=True, company=company)
-        except ApplicationError as e:
-            return CompanyMutationPayload(
-                success=False, errors=[format_application_error(e)]
-            )
-
-    @strawberry.mutation
     @require_owner()
     def update_company(
         self, info: strawberry.Info, input: UpdateCompanyInput

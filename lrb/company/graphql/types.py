@@ -12,6 +12,7 @@ from lrb.company.models.settings import CompanySettings
 @strawberry_django.type(Company)
 class CompanyType:
     id: auto
+    slug: auto
     name: auto
     email: auto
     phone: auto

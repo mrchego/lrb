@@ -1,3 +1,4 @@
+from django_tenants.models import TenantMixin
 from django.db import models
 from lrb.core.models.base import BaseModel
 from lrb.core.validators.phone import validate_phone_number
@@ -7,7 +8,10 @@ from lrb.core.utilis.files import (
 )
 
 
-class Company(BaseModel):
+class Company(TenantMixin, BaseModel):
+    auto_create_schema = False
+    auto_drop_schema = False
+    slug = models.SlugField(max_length=42, unique=True)
     name = models.CharField(max_length=255)
     logo_light = models.ImageField(
         upload_to=company_logo_light_upload_path, blank=True, null=True
@@ -21,6 +25,7 @@ class Company(BaseModel):
     city = models.CharField(max_length=100)
     address = models.TextField()
     is_active = models.BooleanField(default=True)
+    
 
     class Meta:
         verbose_name = "Company"

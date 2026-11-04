@@ -31,6 +31,7 @@ class UpdateCompanyInput:
 @strawberry.input
 class RegisterCompanyInput:
     name: str
+    slug: str
     email: str
     phone: str
     country: str

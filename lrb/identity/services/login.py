@@ -3,7 +3,7 @@ from lrb.core.exceptions import ApplicationError, ErrorCode
 from lrb.identity.services.authenticate import authenticate_credentials
 from lrb.identity.services.failed_login import handle_failed_login
 from lrb.identity.services.successful_login import handle_successful_login
-
+from lrb.core.tenancy import assert_user_in_current_tenant
 
 def login(*, email: str, password: str):
     user = get_user_by_email(email=email)
@@ -12,6 +12,8 @@ def login(*, email: str, password: str):
     except ApplicationError as e:
         handle_failed_login(user=user)
         raise e
+
+    assert_user_in_current_tenant(authenticated_user)
 
     if authenticated_user.is_locked:
         raise ApplicationError(
