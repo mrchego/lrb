@@ -6,6 +6,7 @@ from lrb.authorization.graphql.mutations import RoleMutation
 from lrb.authorization.graphql.queries import RoleQuery
 from lrb.company.graphql.mutations import CompanyMutation
 from lrb.company.graphql.queries import CompanyQuery
+from lrb.core.graphql.money import MoneyQuery
 from lrb.dashboard.graphql.queries import DashboardQuery
 from lrb.identity.graphql.mutations import AuthMutation
 from lrb.identity.graphql.queries import SessionQuery
@@ -13,7 +14,7 @@ from lrb.products.graphql.mutations import ProductMutation
 from lrb.products.graphql.queries import ProductQuery
 from lrb.staff.graphql.mutations import StaffMutation
 from lrb.staff.graphql.queries import StaffQuery
-
+from lrb.core.graphql.clock import TimeQuery
 
 @strawberry.type
 class Query(
@@ -23,7 +24,9 @@ class Query(
     CompanyQuery,
     SessionQuery,
     StaffQuery,
-    ProductQuery
+    ProductQuery,
+    TimeQuery,
+    MoneyQuery,
 ):
     pass
 

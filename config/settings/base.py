@@ -148,10 +148,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # MIDDLEWARE
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "lrb.core.middleware.TenantMiddleware",  # TENANCY: must be FIRST
     "lrb.core.middleware.RequireGraphQLPreflightMiddleware",  # TENANCY
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "lrb.core.middleware.CompanyTimezoneMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",

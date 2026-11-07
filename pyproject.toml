@@ -37,6 +37,7 @@ dependencies = [
   "sentry-sdk==2.66.1",
   "strawberry-graphql-django>=0.86.5",
   "strawberry-graphql[cli]>=0.323.2",
+  "tzdata>=2026.3",
   "uvicorn-worker==0.4.0",
   "uvicorn[standard]==0.52.0",
   "whitenoise==6.12.0",
