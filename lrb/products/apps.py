@@ -9,4 +9,6 @@ class ProductsConfig(AppConfig):
     verbose_name = _("Products")
 
     def ready(self):
-        pass
+        from lrb.core.money.usage import register_money_usage_check
+        from lrb.products.models import Product
+        register_money_usage_check(lambda *, company: Product.objects.filter(company=company).exists())

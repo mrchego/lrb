@@ -6,6 +6,8 @@ from lrb.core.exceptions import (
     BusinessRuleViolationError,
     ErrorCode,
 )
+from lrb.core.money.amounts import validate_money_amount
+from lrb.core.money.company import get_company_currency
 from lrb.products.selectors.get_product import get_product
 
 
@@ -33,10 +35,8 @@ def update_product(
             raise AppValidationError(message="SKU is required.", field="sku")
         product.sku = sku
 
-    if price is not None:
-        if price < 0:
-            raise AppValidationError(message="Price cannot be negative.", field="price")
-        product.price = price
+    currency = get_company_currency(company_id=company_id).code
+    product.price = validate_money_amount(amount=price, currency=currency, field="price")
 
     if is_active is not None:
         product.is_active = is_active

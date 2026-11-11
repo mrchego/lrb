@@ -21,3 +21,7 @@ if settings.DEBUG:
         import debug_toolbar
 
         urlpatterns = [path("__debug__/", include(debug_toolbar.urls)), *urlpatterns]
+
+handler403 = "lrb.core.views.forbidden"
+handler404 = "lrb.core.views.not_found"
+ 

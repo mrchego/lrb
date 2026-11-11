@@ -4,6 +4,7 @@ import strawberry
 
 from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
 from lrb.authorization.decorators import require_owner
+from lrb.core.graphql.clock import DateRangeInput
 from lrb.staff.graphql.types import InvitationConnection, StaffMemberConnection
 from lrb.staff.selectors.count_pending_invitations import count_pending_invitations
 from lrb.staff.selectors.list_invitations import list_invitations
@@ -23,7 +24,10 @@ class StaffQuery:
     ) -> InvitationConnection:
         current = get_current_user_or_raise(info)
         items, total_count = list_invitations(
-            company_id=str(current.company_id), used=used, limit=limit, offset=offset
+            company_id=str(current.company_id),
+            used=used,
+            limit=limit,
+            offset=offset,
         )
         return InvitationConnection(items=items, total_count=total_count)
 

@@ -2,6 +2,7 @@ from typing import Optional
 
 from django.db.models import Q
 
+from lrb.core.clock.ranges import DateRange, apply_date_range
 from lrb.core.pagination import paginate_queryset
 from lrb.core.tenancy import require_company_id
 from lrb.products.models import Product
@@ -12,6 +13,7 @@ def list_products(
     company_id: str,
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
+    created: Optional[DateRange] = None,
     limit: Optional[int] = None,
     offset: int = 0,
 ):
@@ -19,9 +21,18 @@ def list_products(
     qs = Product.objects.filter(company_id=company_id)
     if is_active is not None:
         qs = qs.filter(is_active=is_active)
+
     if search:
         qs = qs.filter(Q(name__icontains=search) | Q(sku__icontains=search))
+
+    qs = apply_date_range(
+        qs,
+        "created_at",
+        date_range=created,
+    )
+
     return paginate_queryset(qs.order_by("name"), limit=limit, offset=offset)
+
 
 # 1. Purpose
 

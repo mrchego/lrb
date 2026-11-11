@@ -5,6 +5,8 @@ from lrb.core.exceptions import (
     BusinessRuleViolationError,
     ErrorCode,
 )
+from lrb.core.money.amounts import validate_money_amount
+from lrb.core.money.company import get_company_currency
 from lrb.products.models import Product
 
 
@@ -20,8 +22,8 @@ def create_product(*, company, name, sku, price, is_active=True):
     if not sku:
         raise AppValidationError(message="SKU is required.", field="sku")
 
-    if price < 0:
-        raise AppValidationError(message="Price cannot be negative.", field="price")
+    currency = get_company_currency(company_id=company.pk).code
+    price = validate_money_amount(amount=price, currency=currency, field="price")
 
     try:
         return Product.objects.create(

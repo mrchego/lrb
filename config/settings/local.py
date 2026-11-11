@@ -21,11 +21,12 @@ ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", ".localhost",]  # noqa: S1
 # https://docs.djangoproject.com/en/dev/ref/settings/#caches
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_CACHE_URL", default="redis://redis:6379/1"),  # not Celery's DB 0
         "KEY_FUNCTION": "django_tenants.cache.make_key",
         "REVERSE_KEY_FUNCTION": "django_tenants.cache.reverse_key",
-    },
+        "OPTIONS": {"serializer": "lrb.core.cache.serializers.JSONSerializer"},
+    }
 }
 
 

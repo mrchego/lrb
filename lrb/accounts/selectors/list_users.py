@@ -4,6 +4,7 @@ from django.db.models import Prefetch, Q
 
 from lrb.accounts.models import User
 from lrb.authorization.models.user_role import UserRole
+from lrb.core.clock.ranges import DateRange, apply_date_range
 from lrb.core.pagination import paginate_queryset
 from lrb.core.tenancy import require_company_id
 
@@ -14,6 +15,7 @@ def list_users(
     is_active: Optional[bool] = None,
     can_login: Optional[bool] = None,
     search: Optional[str] = None,
+    created: Optional[DateRange] = None,
     limit: Optional[int] = None,
     offset: int = 0,
 ):
@@ -38,6 +40,13 @@ def list_users(
             | Q(first_name__icontains=search)
             | Q(last_name__icontains=search)
         )
+
+    qs = apply_date_range(
+        qs,
+        "created_at",
+        date_range=created,
+    )
+    
     return paginate_queryset(qs.order_by("-created_at"), limit=limit, offset=offset)
 
 

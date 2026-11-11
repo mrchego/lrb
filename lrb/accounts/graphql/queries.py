@@ -10,6 +10,7 @@ from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or
 from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.selectors.list_users import list_users
 from lrb.authorization.decorators import require_owner
+from lrb.core.graphql.clock import DateRangeInput
 
 
 @strawberry.type
@@ -32,6 +33,7 @@ class UserQuery:
         is_active: Optional[bool] = None,
         can_login: Optional[bool] = None,
         search: Optional[str] = None,
+        created: Optional[DateRangeInput] = None,
         limit: Optional[int] = None,
         offset: int = 0,
     ) -> UserConnection:
@@ -41,6 +43,7 @@ class UserQuery:
             is_active=is_active,
             can_login=can_login,
             search=search,
+            created=created.to_domain() if created else None,
             limit=limit,
             offset=offset,
         )

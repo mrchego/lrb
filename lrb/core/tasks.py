@@ -1,6 +1,8 @@
+
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
+
 
 @shared_task(
     bind=True,
@@ -10,9 +12,9 @@ from django.core.mail import send_mail
 )
 def send_email_task(self, *, subject, message, recipient_list):
     """
-    email goes through here so SMTP latency
-    and transient failures never block the request/response cycle inside
-    a GraphQL mutation.
+    Shared by identity (verification/reset codes) and staff (invitations).
+    Email goes through here so SMTP latency and transient failures never
+    block the request/response cycle inside a GraphQL mutation.
     """
     send_mail(
         subject=subject,
@@ -20,9 +22,11 @@ def send_email_task(self, *, subject, message, recipient_list):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=recipient_list,
     )
-    
-    
-    
+
+
+# Register the cache refresh task with Celery.
+from lrb.core.cache.tasks import refresh_cache_entry  # noqa: F401
+
     
     
 # Level 1 — Big Picture

@@ -1,4 +1,5 @@
 from lrb.accounts.selectors.get_user_by_email import get_user_by_email
+from lrb.core.clock.core import to_local
 from lrb.core.exceptions import ApplicationError, ErrorCode
 from lrb.identity.services.authenticate import authenticate_credentials
 from lrb.identity.services.failed_login import handle_failed_login
@@ -17,7 +18,10 @@ def login(*, email: str, password: str):
 
     if authenticated_user.is_locked:
         raise ApplicationError(
-            message=f"Account locked until {authenticated_user.locked_until.strftime('%Y-%m-%d %H:%M:%S')}.",
+            message=(
+                f"Account locked until "
+                f"{to_local(authenticated_user.locked_until).strftime('%Y-%m-%d %H:%M:%S')}."
+            ),
             code=ErrorCode.ACCOUNT_DISABLED,
         )
     if not authenticated_user.can_login:

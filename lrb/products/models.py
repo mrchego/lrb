@@ -1,6 +1,7 @@
 from django.db import models
 
 from lrb.core.models.base import BaseModel
+from lrb.core.models.fields import MoneyField
 
 
 class Product(BaseModel):
@@ -9,7 +10,7 @@ class Product(BaseModel):
     )
     name = models.CharField(max_length=255)
     sku = models.CharField(max_length=100)
-    price = models.DecimalField(max_digits=12, decimal_places=2)
+    price = MoneyField()
     is_active = models.BooleanField(default=True)
 
     class Meta:

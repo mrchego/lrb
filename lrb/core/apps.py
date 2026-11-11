@@ -6,9 +6,15 @@ class CoreConfig(AppConfig):
     name = "lrb.core"
     label = "core"
     verbose_name = _("Core")
-    
-    def  ready(self):
-        pass
+
+    def ready(self):
+        # Every installed app can declare cache policies in <app>/cache_policies.py.
+        # Import them all now, then connect the model-save hooks they asked for.
+        from lrb.core.cache import autodiscover_cache_policies, connect_model_invalidation
+
+        autodiscover_cache_policies()
+        connect_model_invalidation()
+
     
 # core/apps.py — Django AppConfig
 # 1. Purpose — What problem does this solve?

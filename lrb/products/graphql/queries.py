@@ -4,6 +4,7 @@ import strawberry
 
 from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
 from lrb.authorization.decorators import require_permission
+from lrb.core.graphql.clock import DateRangeInput
 from lrb.products.graphql.inputs import ProductIdInput
 from lrb.products.graphql.types import ProductConnection, ProductType
 from lrb.products.selectors.get_product import get_product
@@ -29,6 +30,7 @@ class ProductQuery:
         info: strawberry.Info,
         is_active: Optional[bool] = None,
         search: Optional[str] = None,
+        created: Optional[DateRangeInput] = None,
         limit: Optional[int] = None,
         offset: int = 0,
     ) -> ProductConnection:
@@ -37,6 +39,7 @@ class ProductQuery:
             company_id=str(current.company_id),
             is_active=is_active,
             search=search,
+            created=created.to_domain() if created else None,
             limit=limit,
             offset=offset,
         )

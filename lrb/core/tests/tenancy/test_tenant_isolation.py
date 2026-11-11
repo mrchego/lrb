@@ -1,43 +1,52 @@
 """
-Cross-company isolation suite.
+Cross-company isolation suite for the schema-per-company design.
 
-Three layers of proof:
-  1. WRITE attacks  - company A's owner (and A's permission-holding staff) fire
-     company B's ids at every mutation. B's data must be byte-for-byte unchanged.
-  2. READ attacks   - every list/detail query must only ever return A's rows.
-  3. COVERAGE GUARD - fails if the schema gains an id-taking operation that has
-     no attack registered here. New endpoint => new attack, or CI is red.
+What "isolation" means now, in three layers:
+  1. The database layer. Each company lives in its own PostgreSQL schema, so company B's
+     rows are not even visible from A's schema (see test_schema_isolation.py).
+  2. The guard layer. assert_user_in_current_tenant / require_company_id / company_id
+     filters decide what happens when a user is presented on the wrong site, or when there
+     is no company context at all.
+  3. The application layer (this file): every id-taking operation is attacked from BOTH
+     positions and must fail, leaving B's data byte-for-byte unchanged:
+        own_host    A's user on A's site: B's ids point at nothing in the active schema.
+        cross_host  A's user on B's site: B's rows are in the active schema, so only the
+                    guards stand in the way. This is the dangerous case.
 
-To add an attack: write a function returning (graphql_document, operation_name,
-watcher) and decorate it with @attack("operationName").
-`watcher()` returns the target's state; it must be equal before and after.
+Plus a COVERAGE GUARD: fails if the schema gains an id-taking operation with no attack.
+
+To add an attack: write a function returning (graphql_document, operation_name, watcher)
+and decorate it with @attack("operationName"). `watcher()` returns the target's state and
+must be equal before and after. Read state ONLY through the helpers in helpers.py (they
+enter the right schema); count rows with count_everywhere() so a row created in either
+company's schema is noticed.
 """
 from __future__ import annotations
 
 import inspect
-import json
 import re
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
+from django_tenants.utils import tenant_context
 from graphql import GraphQLInputObjectType, get_named_type
 
 from config.schema import schema
-from lrb.accounts.services.promote_to_owner import promote_to_owner
-from lrb.accounts.services.update_user import update_user
-from lrb.authorization.models.user_role import UserPermissionOverride, UserRole
-from lrb.authorization.models.role import Role
-from lrb.authorization.permissions import PERMISSION_REGISTRY
-from lrb.authorization.selectors.get_role import get_role
-from lrb.authorization.selectors.get_user_permissions import (
-    get_user_permission_codenames,
-)
-from lrb.authorization.selectors.user_has_permission import user_has_permission
 from lrb.accounts.models import User
 from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 from lrb.accounts.selectors.list_users import list_users
+from lrb.accounts.services.promote_to_owner import promote_to_owner
+from lrb.accounts.services.update_user import update_user
+from lrb.authorization.models.permission import Permission
+from lrb.authorization.models.role import Role
+from lrb.authorization.models.user_role import UserPermissionOverride, UserRole
+from lrb.authorization.permissions import PERMISSION_REGISTRY
+from lrb.authorization.selectors.get_role import get_role
+from lrb.authorization.selectors.get_user_permissions import get_user_permission_codenames
+from lrb.authorization.selectors.user_has_permission import user_has_permission
 from lrb.core.exceptions import AppPermissionDeniedError, ApplicationError
 from lrb.identity.services.login import login
 from lrb.products.selectors.get_product import get_product
@@ -46,96 +55,19 @@ from lrb.products.selectors.list_products import list_products
 from lrb.staff.models import Invitation
 
 from .conftest import PASSWORD
+from .helpers import (
+    ATTACKS, BULK, COVERED, POSITIONS, PRODUCT_ATTACKS, PRODUCT_FIELDS, USER_FIELDS,
+    assert_attack_fails, attack, count_everywhere, invitation_state, mutation, role_state,
+    state, succeeded, user_roles_state,
+)
 
 pytestmark = pytest.mark.django_db
 
-# --------------------------------------------------------------------------- #
-# GraphQL literal helpers                                                      #
-# --------------------------------------------------------------------------- #
-BULK = "success succeededIds"
 
-
-def lit(value) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return str(value)
-    if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(lit(v) for v in value) + "]"
-    return json.dumps(str(value))
-
-
-def mutation(operation: str, selection: str = "success", /, **input_fields) -> str:
-    body = ", ".join(f"{k}: {lit(v)}" for k, v in input_fields.items())
-    return f"mutation {{ {operation}(input: {{ {body} }}) {{ {selection} }} }}"
-
-
-def state(obj, *fields):
-    """Snapshot of a row, or 'DELETED' if it no longer exists."""
-    try:
-        obj.refresh_from_db()
-    except obj.__class__.DoesNotExist:
-        return "DELETED"
-    return {f: getattr(obj, f) for f in fields}
-
-
-USER_FIELDS = (
-    "is_active", "can_login", "is_superuser", "is_staff", "locked_until",
-    "failed_login_attempts", "password_reset_required", "first_name", "last_name",
-)
-PRODUCT_FIELDS = ("name", "sku", "price", "is_active")
-
-
-def role_state(role):
-    row = Role.objects.filter(pk=role.pk).first()
-    return {
-        "exists": row is not None,
-        "name": row.name if row else None,
-        "perms": sorted(row.permissions.values_list("codename", flat=True)) if row else None,
-        "assigned": sorted(
-            str(u) for u in UserRole.objects.filter(role_id=role.pk).values_list("user_id", flat=True)
-        ),
-    }
-
-
-def user_roles_state(user):
-    return {
-        "roles": sorted(str(r) for r in UserRole.objects.filter(user=user).values_list("role_id", flat=True)),
-        "overrides": sorted(
-            UserPermissionOverride.objects.filter(user=user).values_list(
-                "permission__codename", "is_granted"
-            )
-        ),
-        "user": state(user, *USER_FIELDS),
-    }
-
-
-def succeeded(result, operation: str) -> bool:
-    data = (result.data or {}).get(operation)
-    if not data:
-        return False
-    if "succeededIds" in data:
-        return bool(data["succeededIds"])
-    return data.get("success") is True
-
-
-# --------------------------------------------------------------------------- #
-# Attack registry                                                              #
-# --------------------------------------------------------------------------- #
-ATTACKS: list = []
-PRODUCT_ATTACKS: list = []
-COVERED: set[str] = set()
-
-
-def attack(*operations, product: bool = False):
-    def deco(fn):
-        COVERED.update(operations)
-        ATTACKS.append(fn)
-        if product:
-            PRODUCT_ATTACKS.append(fn)
-        return fn
-
-    return deco
+def _update_user(company, user, **fields):
+    """Direct write to a user's row, inside that company's own schema."""
+    with tenant_context(company):
+        User.objects.filter(pk=user.pk).update(**fields)
 
 
 # ----- products (run as A's owner AND as A's permission-holding staff) -------
@@ -220,9 +152,7 @@ def atk_lock_user(w):
 @attack("unlockUser")
 def atk_unlock_user(w):
     u = w.new_user(w.b)
-    User.objects.filter(pk=u.pk).update(
-        locked_until=timezone.now() + timezone.timedelta(hours=1), failed_login_attempts=4
-    )
+    _update_user(w.b, u, locked_until=timezone.now() + timezone.timedelta(hours=1), failed_login_attempts=4)
     return mutation("unlockUser", userId=u.id), "unlockUser", lambda: state(u, *USER_FIELDS)
 
 
@@ -255,13 +185,11 @@ def _bulk_user_attack(name, **extra):
     def fn(w):
         u = w.new_user(w.b)
         if name == "bulkUnlockUsers":
-            User.objects.filter(pk=u.pk).update(
-                locked_until=timezone.now() + timezone.timedelta(hours=1), failed_login_attempts=4
-            )
+            _update_user(w.b, u, locked_until=timezone.now() + timezone.timedelta(hours=1), failed_login_attempts=4)
         if name == "bulkActivateUsers":
-            User.objects.filter(pk=u.pk).update(is_active=False)
+            _update_user(w.b, u, is_active=False)
         if name == "bulkRestoreUsers":
-            User.objects.filter(pk=u.pk).update(is_active=False, can_login=False)
+            _update_user(w.b, u, is_active=False, can_login=False)
         return (mutation(name, BULK, userIds=[u.id], **extra), name, lambda: state(u, *USER_FIELDS))
 
     fn.__name__ = f"atk_{name}"
@@ -295,7 +223,7 @@ def atk_clone_role(w):
     # A successful clone would COPY B's role into A and leak its permission set.
     r = w.new_role(w.b, ["products.view_product"])
     return (mutation("cloneRole", roleId=r.id, newName="stolen"), "cloneRole",
-            lambda: {"a_roles": Role.objects.filter(company=w.a).count(), "b": role_state(r)})
+            lambda: {"roles": count_everywhere(w, Role), "b": role_state(r)})
 
 
 @attack("assignRole")
@@ -358,40 +286,33 @@ def atk_clear_permission_override(w):
     from lrb.authorization.models.permission import Permission
 
     u = w.new_user(w.b)
-    UserPermissionOverride.objects.create(
-        user=u, permission=Permission.objects.get(codename="products.view_product"), is_granted=False
-    )
+    with tenant_context(w.b):
+        UserPermissionOverride.objects.create(
+            user=u, permission=Permission.objects.get(codename="products.view_product"), is_granted=False
+        )
     return (mutation("clearPermissionOverride", userId=u.id,
                      permissionCodename="products.view_product"),
             "clearPermissionOverride", lambda: user_roles_state(u))
 
 
 # ----- staff / invitations ----------------------------------------------------
-def _invitation_state(user, invitation):
-    return {
-        "invitation": Invitation.objects.filter(pk=invitation.pk).values_list(
-            "token", "expires_at", "used").first(),
-        "user_exists": User.objects.filter(pk=user.pk).exists(),
-    }
-
-
 @attack("revokeInvitation")
 def atk_revoke_invitation(w):
     u, inv = w.new_invitation(w.b, w.owner_b)
-    return mutation("revokeInvitation", invitationId=inv.id), "revokeInvitation", lambda: _invitation_state(u, inv)
+    return mutation("revokeInvitation", invitationId=inv.id), "revokeInvitation", lambda: invitation_state(u, inv)
 
 
 @attack("resendInvitation")
 def atk_resend_invitation(w):
     u, inv = w.new_invitation(w.b, w.owner_b)
-    return mutation("resendInvitation", invitationId=inv.id), "resendInvitation", lambda: _invitation_state(u, inv)
+    return mutation("resendInvitation", invitationId=inv.id), "resendInvitation", lambda: invitation_state(u, inv)
 
 
 @attack("bulkRevokeInvitations")
 def atk_bulk_revoke_invitations(w):
     u, inv = w.new_invitation(w.b, w.owner_b)
     return (mutation("bulkRevokeInvitations", BULK, invitationIds=[inv.id]),
-            "bulkRevokeInvitations", lambda: _invitation_state(u, inv))
+            "bulkRevokeInvitations", lambda: invitation_state(u, inv))
 
 
 @attack("setStaffLoginAccess")
@@ -413,7 +334,7 @@ def atk_promote_staff_to_login(w):
     return (mutation("promoteStaffToLogin", userId=u.id, roleId=w.role_a.id),
             "promoteStaffToLogin",
             lambda: {"u": user_roles_state(u),
-                     "invites": Invitation.objects.filter(email=u.email).count()})
+                     "invites": count_everywhere(w, Invitation, email=u.email)})
 
 
 @attack("inviteStaff")
@@ -422,54 +343,54 @@ def atk_invite_staff_with_foreign_role(w):
     return (mutation("inviteStaff", email=email, firstName="X", lastName="Y",
                      canLogin=True, roleId=w.role_b.id),
             "inviteStaff",
-            lambda: {"users": User.objects.filter(email=email).count(),
-                     "invites": Invitation.objects.filter(email=email).count(),
+            lambda: {"users": count_everywhere(w, User, email=email),
+                     "invites": count_everywhere(w, Invitation, email=email),
                      "b_assigned": role_state(w.role_b)})
 
 
 # --------------------------------------------------------------------------- #
 # 1. WRITE attacks                                                             #
 # --------------------------------------------------------------------------- #
-def _assert_attack_fails(w, actor, fn):
-    document, operation, watcher = fn(w)
-    before = watcher()
-    result = w.run(actor, document)
-    after = watcher()
-    assert not succeeded(result, operation), f"{operation}: cross-company attack reported success"
-    assert after == before, f"{operation}: company B's data was modified"
-
-
+@pytest.mark.parametrize("position", POSITIONS)
 @pytest.mark.parametrize("fn", ATTACKS, ids=lambda f: f.__name__)
-def test_owner_of_A_cannot_touch_B(w, fn):
-    _assert_attack_fails(w, w.owner_a, fn)
+def test_owner_of_A_cannot_touch_B(w, fn, position):
+    assert_attack_fails(w, w.owner_a, fn, position=position)
 
 
+@pytest.mark.parametrize("position", POSITIONS)
 @pytest.mark.parametrize("fn", PRODUCT_ATTACKS, ids=lambda f: f.__name__)
-def test_permission_holding_staff_of_A_cannot_touch_B_products(w, fn):
+def test_permission_holding_staff_of_A_cannot_touch_B_products(w, fn, position):
     # Permission to edit products means "in MY company", never "anywhere".
-    _assert_attack_fails(w, w.staff_a, fn)
+    assert_attack_fails(w, w.staff_a, fn, position=position)
 
 
 def test_positive_control_own_company_still_works(w):
     """If everything errored for everyone, the attack tests above would pass
-    vacuously. Prove the legitimate path works."""
+    vacuously. Prove the legitimate path works, in BOTH companies."""
     r = w.run(w.owner_a, mutation("updateProduct", productId=w.product_a.id, name="Renamed"))
     assert succeeded(r, "updateProduct")
-    w.product_a.refresh_from_db()
+    with tenant_context(w.a):
+        w.product_a.refresh_from_db()
     assert w.product_a.name == "Renamed"
 
     r = w.run(w.staff_a, mutation("deactivateProduct", productId=w.product_a.id))
     assert succeeded(r, "deactivateProduct")
-    w.product_a.refresh_from_db()
+    with tenant_context(w.a):
+        w.product_a.refresh_from_db()
     assert w.product_a.is_active is False
 
     own = w.new_user(w.a)
     r = w.run(w.owner_a, mutation("assignRole", userId=own.id, roleId=w.role_a.id))
     assert succeeded(r, "assignRole")
-    assert UserRole.objects.filter(user=own, role=w.role_a).exists()
+    with tenant_context(w.a):
+        assert UserRole.objects.filter(user=own, role=w.role_a).exists()
 
     r = w.run(w.owner_a, mutation("lockUser", userId=own.id, durationMinutes=30))
     assert succeeded(r, "lockUser")
+
+    # Company B's owner works on B's own site: so a failure above is never "B is broken".
+    r = w.run(w.owner_b, mutation("updateProduct", productId=w.product_b.id, name="B-Renamed"))
+    assert succeeded(r, "updateProduct")
 
 
 # --------------------------------------------------------------------------- #
@@ -528,11 +449,10 @@ def test_effective_permissions_of_foreign_user_is_empty(w):
 
 
 def test_permission_overrides_of_foreign_user_is_empty(w):
-    from lrb.authorization.models.permission import Permission
-
-    UserPermissionOverride.objects.create(
-        user=w.staff_b, permission=Permission.objects.get(codename="products.view_product")
-    )
+    with tenant_context(w.b):
+        UserPermissionOverride.objects.create(
+            user=w.staff_b, permission=Permission.objects.get(codename="products.view_product")
+        )
     r = w.run(w.owner_a, f'{{ userPermissionOverrides(userId: "{w.staff_b.id}") {{ __typename }} }}')
     assert not r.errors
     assert r.data["userPermissionOverrides"] == []
@@ -574,42 +494,62 @@ def test_deactivated_company_loses_all_access(w):
     w.a.is_active = False
     w.a.save(update_fields=["is_active"])
     # a live session: the user is loaded fresh from the DB on every request
-    session_user = User.objects.get(pk=w.owner_a.pk)
+    with tenant_context(w.a):
+        session_user = User.objects.get(pk=w.owner_a.pk)
     r = w.run(session_user, "{ products { items { id } } }")
     assert r.errors
     r = w.run(session_user, "{ dashboard { __typename } }")
     assert r.errors
     # new sign-in
-    with pytest.raises(ApplicationError):
-        login(email=w.owner_a.email, password=PASSWORD)
+    with tenant_context(w.a):
+        with pytest.raises(ApplicationError):
+            login(email=w.owner_a.email, password=PASSWORD)
 
 
 def test_cross_company_userrole_cannot_be_saved(w):
-    with pytest.raises(ValidationError):
-        UserRole.objects.create(user=w.staff_a, role=w.role_b)
+    with tenant_context(w.a):
+        with pytest.raises(ValidationError):
+            UserRole.objects.create(user=w.staff_a, role=w.role_b)
 
 
-def test_cross_company_userrole_never_grants_permissions(w):
-    from django.core.cache import cache
-    from lrb.authorization.models.permission import Permission
+def test_cross_company_userrole_is_physically_impossible(w):
+    """The old test bypassed the model guard with bulk_create. Now the DATABASE refuses:
+    company B's role is not a row in A's schema, so the foreign key cannot be satisfied."""
+    loner = w.new_user(w.a)
+    with tenant_context(w.a):
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():
+                UserRole.objects.bulk_create([UserRole(user=loner, role=w.role_b)])
+                connection.check_constraints()  # foreign keys are deferred: force the check now
 
-    w.role_b.permissions.add(Permission.objects.get(codename="products.delete_product"))
+
+def test_a_foreign_role_inside_A_never_grants_permissions(w):
+    """Defence in depth. Schema isolation makes it hard to even get B's role next to A's
+    user, but a role row that CLAIMS company B and sits inside A's schema is physically
+    possible. The permission selector must still ignore it."""
+    with tenant_context(w.a):
+        alien = Role.objects.create(company=w.b, name="alien-role")
+        alien.permissions.add(Permission.objects.get(codename="products.delete_product"))
     loner = w.new_user(w.a)  # no roles of their own
-    # Bypass the model guard on purpose: bulk_create never calls save().
-    UserRole.objects.bulk_create([UserRole(user=loner, role=w.role_b)])
-    cache.clear()
-    assert "products.delete_product" not in get_user_permission_codenames(user=loner)
-    assert not user_has_permission(user=loner, codename="products.delete_product")
+    with tenant_context(w.a):
+        # Bypass the model guard on purpose: bulk_create never calls save().
+        UserRole.objects.bulk_create([UserRole(user=loner, role=alien)])
+        from django.core.cache import cache
+
+        cache.clear()
+        assert "products.delete_product" not in get_user_permission_codenames(user=loner)
+        assert not user_has_permission(user=loner, codename="products.delete_product")
 
 
 def test_invitation_role_must_match_company(w):
     from datetime import timedelta
 
-    with pytest.raises(ValidationError):
-        Invitation.objects.create(
-            email="x@example.test", company=w.a, invited_by=w.owner_a,
-            role=w.role_b, expires_at=timezone.now() + timedelta(days=1),
-        )
+    with tenant_context(w.a):
+        with pytest.raises(ValidationError):
+            Invitation.objects.create(
+                email="x@example.test", company=w.a, invited_by=w.owner_a,
+                role=w.role_b, expires_at=timezone.now() + timedelta(days=1),
+            )
 
 
 def test_update_user_cannot_move_a_user_between_companies():
@@ -618,23 +558,26 @@ def test_update_user_cannot_move_a_user_between_companies():
 
 def test_promoting_to_owner_never_grants_django_admin_access(w):
     u = w.new_user(w.a)
-    promote_to_owner(user_id=u.id, company_id=str(w.a.id))
-    u.refresh_from_db()
+    with tenant_context(w.a):
+        promote_to_owner(user_id=u.id, company_id=str(w.a.id))
+        u.refresh_from_db()
     assert u.is_superuser is True and u.is_staff is False
 
 
-def test_invite_does_not_reveal_emails_from_other_companies(w):
-    from lrb.staff.workflows.invite_staff import invite_staff
+def test_another_companys_user_emails_are_invisible_from_this_schema(w):
+    """REPLACES test_invite_does_not_reveal_emails_from_other_companies.
 
-    msgs = set()
-    for existing in (w.staff_a, w.staff_b):  # same company vs other company
-        with pytest.raises(ApplicationError) as exc:
-            invite_staff(
-                email=existing.email, first_name="x", last_name="y",
-                company=w.a, invited_by=w.owner_a, request=None, role=w.role_a,
-            )
-        msgs.add(exc.value.message)
-    assert len(msgs) == 1  # identical answer either way
+    The old test asserted that inviting an email that exists in another company gave the
+    SAME error as inviting an existing colleague (so duplicates could not be used to probe
+    other companies). With a schema per company, other companies' users are not even in the
+    schema being searched, so there is nothing to probe: the lookup finds nothing.
+
+    Whether the same email address may belong to users of two companies is a PRODUCT
+    decision. If it must stay forbidden, that needs an explicit platform-level check, and
+    this test should grow a second assertion for it."""
+    with tenant_context(w.a):
+        assert not User.objects.filter(email=w.staff_b.email).exists()
+        assert User.objects.filter(email=w.staff_a.email).exists()  # same-company still found
 
 
 # --------------------------------------------------------------------------- #

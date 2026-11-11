@@ -4,8 +4,10 @@ import strawberry
 
 from lrb.accounts.selectors.get_current_user import get_current_user
 from lrb.authorization.selectors.user_has_permission import user_has_permission
-from lrb.dashboard.selectors.product_stats import get_product_stats
-from lrb.dashboard.selectors.user_stats import get_user_stats
+from lrb.dashboard.selectors.cached_stats import (
+    get_cached_product_stats,
+    get_cached_user_stats,
+)
 
 
 @strawberry.type
@@ -44,7 +46,7 @@ class DashboardData:
             return None
         if not user_has_permission(user=user, codename="products.view_product"):
             return None
-        stats = get_product_stats(company_id=str(user.company_id))
+        stats = get_cached_product_stats(company_id=str(user.company_id))
         return ProductStats(
             total=stats["total"],
             active=stats["active"],
@@ -57,7 +59,7 @@ class DashboardData:
         user = get_current_user(info)
         if not user or not user.is_superuser or not user.company_id:
             return None
-        stats = get_user_stats(company_id=str(user.company_id))
+        stats = get_cached_user_stats(company_id=str(user.company_id))
         return UserStats(
             total=stats["total"],
             active=stats["active"],
