@@ -9,7 +9,7 @@ from lrb.company.models.settings import CompanySettings
 from lrb.company.models.domain import Domain
 from lrb.core.exceptions import AppValidationError, BusinessRuleViolationError, ErrorCode
 from lrb.core.tenancy import require_public_schema
-from lrb.core.validators.phone import validate_phone_number
+from lrb.core.phone import normalize_phone, resolve_region
 from lrb.core.validators.validate_company_email_unique import (
     validate_company_email_unique,
 )
@@ -22,7 +22,7 @@ def create_company(
 ):
     require_public_schema()
     validate_company_name(value=name)
-    validate_phone_number(phone)
+    phone = normalize_phone(value=phone, region=resolve_region(country))
     validate_company_email_unique(value=email)
     slug = validate_tenant_slug(value=slug)
     if Company.objects.filter(slug=slug).exists():

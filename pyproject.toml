@@ -30,6 +30,7 @@ dependencies = [
   "gunicorn==26.0.0",
   "hiredis==3.4.0",
   "locust>=2.46.2",
+  "phonenumbers>=9.0.43",
   "pillow==12.3.0",
   "psycopg[binary]==3.3.4",
   "python-slugify==8.0.4",

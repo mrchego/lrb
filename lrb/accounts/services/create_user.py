@@ -11,7 +11,7 @@ from lrb.core.exceptions import (
     ErrorCode,
 )
 from lrb.core.validators.email import validate_email
-from lrb.core.validators.phone import validate_phone_number
+from lrb.accounts.services.normalize_user_phone import normalize_user_phone
 
 
 @transaction.atomic
@@ -31,8 +31,7 @@ def create_user(
     is_founder: bool =False,
 )-> User:
     validate_email(email)
-    if phone:
-        validate_phone_number(phone)
+    phone = normalize_user_phone(phone=phone, company=company)
 
     if password is not None:
         try:

@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+from django.conf import settings
+
+from lrb.core.ratelimit import identity, responses
+from lrb.core.ratelimit.engine import limiter, mode
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django_tenants.middleware.main import TenantMainMiddleware
@@ -53,6 +59,42 @@ class CompanyTimezoneMiddleware:
         if tenant is None or tenant.schema_name == get_public_schema_name():
             return get_zone(DEFAULT_TIMEZONE)
         return get_company_timezone(company_id=tenant.pk)
+
+
+class RateLimitMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def _exempt(self, path: str) -> bool:
+        prefixes = [p for p in (getattr(settings, "STATIC_URL", None), getattr(settings, "MEDIA_URL", None)) if p]
+        prefixes += list(getattr(settings, "RATE_LIMIT_EXEMPT_PATHS", ()))
+        # A bare "/" (Django's default MEDIA_URL in some versions) would exempt every path.
+        return any(p != "/" and path.startswith(p) for p in prefixes)
+
+    def __call__(self, request):
+        if mode() == "off" or self._exempt(request.path):
+            return self.get_response(request)
+
+        result = limiter.check("http", company=identity.company_scope(request),
+                               ip=identity.client_ip(request), cost=1)
+        if not result.allowed:
+            resp = JsonResponse({"errors": responses.graphql_errors(result)}, status=429)
+            for k, v in responses.headers(result).items():
+                resp[k] = v
+            return resp
+
+        response = self.get_response(request)
+
+        last = getattr(request, "_rl_last", None) or result
+        denied = getattr(request, "_rl_denied", None)
+        # 429 only when nothing in this request ran. A partly-executed request keeps
+        # status 200 and reports the rejected field in `errors`.
+        if denied is not None and not getattr(request, "_rl_passed", False):
+            response.status_code = 429
+            last = denied
+        for k, v in responses.headers(last).items():
+            response[k] = v
+        return response
 
 
 # Let's Understand CompanyTimezoneMiddleware

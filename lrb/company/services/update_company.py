@@ -1,7 +1,7 @@
 from django.db import transaction, IntegrityError
 from lrb.company.models.company import Company
 from lrb.core.exceptions import ApplicationError, BusinessRuleViolationError, ErrorCode
-from lrb.core.validators.phone import validate_phone_number
+from lrb.core.phone import normalize_phone, resolve_region
 from lrb.core.validators.validate_company_email_unique import (
     validate_company_email_unique,
 )
@@ -39,8 +39,9 @@ def update_company(
         company.email = email
 
     if phone is not None:
-        validate_phone_number(phone)
-        company.phone = phone
+        company.phone = normalize_phone(
+            value=phone, region=resolve_region(country, company.country)
+        )
 
     if country is not None:
         company.country = country

@@ -70,3 +70,16 @@ def test_revoking_clears_the_entry_only_at_commit(env, django_capture_on_commit_
     callbacks[0]()
     sel.get_user_permission_codenames(user=USER)
     assert env == ["u1", "u1"]
+
+
+def test_permission_entries_expire_at_different_moments_but_never_after_the_ttl(monkeypatch):
+    """Permissions cached together (after a deploy or a Redis restart) must not all expire
+    together, and a STRICT entry must still never outlive the policy's ttl."""
+    timeouts = []
+    monkeypatch.setattr(sel, "cache_set", lambda key, value, *, timeout: timeouts.append(timeout))
+    for i in range(300):
+        sel.get_user_permission_codenames(user=SimpleNamespace(id=f"user-{i}", company_id="c1"))
+    assert len(timeouts) == 300
+    assert max(timeouts) <= USER_PERMISSIONS.ttl
+    assert min(timeouts) >= round(USER_PERMISSIONS.ttl * 0.9)
+    assert len(set(timeouts)) > 1

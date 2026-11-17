@@ -13,7 +13,7 @@ from lrb.core.exceptions import (
     ErrorCode,
 )
 from lrb.core.validators.email import validate_email
-from lrb.core.validators.phone import validate_phone_number
+from lrb.accounts.services.normalize_user_phone import normalize_user_phone
 
 if TYPE_CHECKING:
     from lrb.accounts.models import User
@@ -39,8 +39,9 @@ def update_user(
     if last_name is not None:
         user.last_name = last_name
     if phone is not None:
-        validate_phone_number(phone)
-        user.phone = phone
+          user.phone = normalize_user_phone(
+              phone=phone, company=user.company if user.company_id else None
+          )
     if avatar is not None:
         user.avatar = avatar
     if email is not None:

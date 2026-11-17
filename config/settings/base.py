@@ -112,6 +112,9 @@ TENANT_DOMAIN_MODEL = "company.Domain"
 # Companies live at <slug>.<TENANT_BASE_DOMAIN>; the platform lives at the bare domain.
 TENANT_BASE_DOMAIN = env("TENANT_BASE_DOMAIN", default="localhost")
 # Invitation emails etc. build the company's frontend link from this.
+
+# Country that numbers typed WITHOUT a leading "+" are read under (ISO 3166-1 alpha-2).
+PHONE_DEFAULT_REGION = env("PHONE_DEFAULT_REGION", default="KE")
 FRONTEND_URL_TEMPLATE = env("FRONTEND_URL_TEMPLATE", default="http://{slug}.localhost:3000")
 
 # MIGRATIONS
@@ -150,6 +153,7 @@ AUTH_PASSWORD_VALIDATORS = [
 MIDDLEWARE = [
     "lrb.core.middleware.TenantMiddleware",  # TENANCY: must be FIRST
     "lrb.core.middleware.RequireGraphQLPreflightMiddleware",  # TENANCY
+    "lrb.core.middleware.RateLimitMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "lrb.core.middleware.CompanyTimezoneMiddleware",
@@ -284,6 +288,16 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
+
+# RATE LIMITING
+# ------------------------------------------------------------------------------
+RATE_LIMIT_MODE = env("RATE_LIMIT_MODE", default="enforce")        # enforce | shadow | off
+# Dedicated DB, NOT the cache DB: cache.clear() or LRU eviction there would hand out full bursts.
+RATE_LIMIT_REDIS_URL = env("RATE_LIMIT_REDIS_URL", default="redis://redis:6379/2")
+RATE_LIMIT_REDIS_TIMEOUT = 0.25
+# How many reverse proxies sit in front of Django (nginx, load balancer...). 0 = trust only REMOTE_ADDR.
+RATE_LIMIT_TRUSTED_PROXY_COUNT = env.int("RATE_LIMIT_TRUSTED_PROXY_COUNT", default=0)
+
 # django-allauth (platform/public site only)
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
@@ -309,3 +323,4 @@ CSRF_TRUSTED_ORIGINS = [
 # Your stuff...
 # ------------------------------------------------------------------------------
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")  # platform site
+

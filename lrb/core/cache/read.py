@@ -18,7 +18,6 @@ cache_missing=True; otherwise None is never cached.
 from __future__ import annotations
 
 import logging
-import random
 import threading
 import time
 from typing import Any, Mapping
@@ -30,7 +29,7 @@ from django.utils.module_loading import import_string
 from lrb.core.cache import metrics
 from lrb.core.cache.client import cache_get, cache_set, cache_try_lock, cache_unlock
 from lrb.core.cache.keys import current_tenant_scope, lock_key, policy_key, refresh_lock_key
-from lrb.core.cache.policies import CachePolicy, Consistency, get_policy
+from lrb.core.cache.policies import CachePolicy, Consistency, get_policy, jittered_ttl
 from lrb.core.exceptions import AppPermissionDeniedError
 from lrb.core.tenancy import require_company_id
 
@@ -54,11 +53,6 @@ def _local_lock(key: str) -> threading.RLock:
 
 def _now() -> float:
     return time.time()
-
-
-def _jitter(seconds: int) -> int:
-    """+-10% so entries written together do not all expire together."""
-    return max(1, round(seconds * random.uniform(0.9, 1.1)))
 
 
 def _tenant_matches(company_id: str) -> bool:
@@ -137,10 +131,10 @@ def _store(policy: CachePolicy, key: str, value: Any) -> None:
     if value is None:
         if not policy.cache_missing:
             return  # never remember None unless the policy says "not found" is a real answer
-        fresh = _jitter(policy.missing_ttl)
+        fresh = jittered_ttl(policy, policy.missing_ttl)
         cache_set(key, {"m": True, "f": now + fresh}, timeout=fresh)
         return
-    fresh = _jitter(policy.ttl)
+    fresh = jittered_ttl(policy, policy.ttl)
     # Keep the value for `stale_ttl` seconds past its fresh window so it can be served stale.
     cache_set(key, {"v": value, "m": False, "f": now + fresh}, timeout=fresh + policy.stale_ttl)
 

@@ -13,6 +13,7 @@ from lrb.core.cache.policies import (
     all_policies,
     autodiscover_cache_policies,
     get_policy,
+    jittered_ttl,
     register_policy,
 )
 from lrb.core.cache.read import cached_read
@@ -32,6 +33,7 @@ __all__ = [
     "delete_after_commit",
     "get_policy",
     "invalidate_policy",
+    "jittered_ttl",
     "register_model_invalidation",
     "register_policy",
 ]

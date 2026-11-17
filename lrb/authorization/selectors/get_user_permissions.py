@@ -9,6 +9,7 @@ from lrb.core.cache import (
     cache_set,
     current_tenant_scope,
     delete_after_commit,
+    jittered_ttl,
 )
 from lrb.core.cache import metrics
 from lrb.core.exceptions import AppPermissionDeniedError
@@ -83,5 +84,11 @@ def get_user_permission_codenames(*, user) -> set[str]:
 
     metrics.record(_NAMESPACE, "miss")
     role_perms = _compute_user_permission_codenames(user=user)
-    cache_set(cache_key, sorted(role_perms), timeout=USER_PERMISSIONS_CACHE_TTL)
+    # Jittered so that permissions cached together do not all expire together. STRICT policies
+    # only ever get a SHORTER lifetime, so the 'never older than ttl' promise still holds.
+    cache_set(
+        cache_key,
+        sorted(role_perms),
+        timeout=jittered_ttl(USER_PERMISSIONS, USER_PERMISSIONS.ttl),
+    )
     return role_perms

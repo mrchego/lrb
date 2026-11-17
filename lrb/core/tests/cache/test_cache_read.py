@@ -61,7 +61,7 @@ def env(monkeypatch):
     metrics.reset()
     clock = Clock()
     monkeypatch.setattr(read, "_now", clock)
-    monkeypatch.setattr(read, "_jitter", lambda seconds: seconds)
+    monkeypatch.setattr(read, "jittered_ttl", lambda policy, seconds: seconds)
     monkeypatch.setattr(read, "_tenant_matches", lambda company_id: True)
     return clock
 
@@ -111,6 +111,19 @@ def test_value_and_timeouts_follow_the_policy(loader, monkeypatch):
     value, timeout = seen[0]
     assert timeout == POLICY.ttl + POLICY.stale_ttl  # stays stored while it may be served stale
     assert value["v"] == {"n": 1} and value["m"] is False
+
+
+def test_cached_read_applies_the_shared_jitter(loader, monkeypatch, env):
+    from lrb.core.cache import policies
+
+    monkeypatch.setattr(read, "jittered_ttl", policies.jittered_ttl)  # undo the autouse pin
+    monkeypatch.setattr(policies, "_uniform", lambda low, high: high)  # BOUNDED_STALE: +10 %
+    seen = []
+    monkeypatch.setattr(read, "cache_set", lambda key, value, *, timeout: seen.append((value, timeout)))
+    read.cached_read(policy=POLICY, company_id="A")
+    value, timeout = seen[0]
+    assert value["f"] - env.t == 66  # fresh window = ttl 60 + 10 %
+    assert timeout == 66 + POLICY.stale_ttl  # stale window added on top, not jittered
 
 
 def test_strict_policies_and_policies_without_loader_are_refused(loader):

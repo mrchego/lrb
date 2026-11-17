@@ -11,6 +11,7 @@ CoreConfig.ready() imports that file from every installed app.
 """
 from __future__ import annotations
 
+import random
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -101,6 +102,32 @@ def get_policy(name: str) -> CachePolicy:
 
 def all_policies() -> list[CachePolicy]:
     return sorted(_REGISTRY.values(), key=lambda p: p.name)
+
+
+# --------------------------------------------------------------------------- #
+# TTL jitter: the ONE place that decides how a policy's ttl is randomised.     #
+# --------------------------------------------------------------------------- #
+# Entries written at the same moment (after a deploy, a Redis restart, a cache clear) would all
+# expire at the same moment and send a wave of queries to the database. Randomising each entry's
+# lifetime spreads that wave out.
+_uniform = random.uniform  # a seam: tests replace it to pin the random factor
+
+_JITTER_RANGE = {
+    # STRICT promises "never older than ttl" (and the platform caps ttl at 300 s), so jitter may
+    # only SHORTEN the lifetime, never extend it.
+    Consistency.STRICT: (0.9, 1.0),
+    # BOUNDED_STALE already tolerates being served a little late, so +-10 % is fine.
+    Consistency.BOUNDED_STALE: (0.9, 1.1),
+}
+
+
+def jittered_ttl(policy: CachePolicy, seconds: int) -> int:
+    """`seconds` (the policy's ttl or missing_ttl) randomised within the policy's allowed range.
+
+    Always at least 1 second. For STRICT policies the result is never greater than `seconds`.
+    """
+    low, high = _JITTER_RANGE[policy.consistency]
+    return max(1, round(seconds * _uniform(low, high)))
 
 
 def autodiscover_cache_policies() -> None:

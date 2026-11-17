@@ -15,6 +15,8 @@ from lrb.products.graphql.queries import ProductQuery
 from lrb.staff.graphql.mutations import StaffMutation
 from lrb.staff.graphql.queries import StaffQuery
 from lrb.core.graphql.clock import TimeQuery
+from lrb.core.ratelimit.graphql import RateLimitExtension
+from lrb.core.graphql.phone import PhoneQuery
 
 @strawberry.type
 class Query(
@@ -27,6 +29,7 @@ class Query(
     ProductQuery,
     TimeQuery,
     MoneyQuery,
+    PhoneQuery,
 ):
     pass
 
@@ -41,7 +44,7 @@ class Mutation(
 ):
     pass
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(query=Query, mutation=Mutation, extensions=[RateLimitExtension])
 
 # Good breakdown to start from — you've got the shape right, but one piece of terminology is off in a way worth fixing carefully, because it changes what's actually happening here. Let's rebuild this precisely.
 

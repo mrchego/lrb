@@ -1,12 +1,27 @@
-import re
 from django.core.exceptions import ValidationError
-from lrb.core.constants import PHONE_REGEX
+
+from lrb.core.exceptions import AppValidationError
+from lrb.core.phone import CONTACT, PhonePolicy, normalize_phone
 
 
-def validate_phone_number(value):
-    if not re.match(PHONE_REGEX, value):
-        raise ValidationError("Enter a valid phone number.")
+def validate_phone_number(value, *, region=None, policy: PhonePolicy = CONTACT):
+    """Django-validator-compatible: raises django ValidationError, returns the value.
+
+    Used as `validators=[validate_phone_number]` on model fields (so full_clean() and the
+    admin check it) and callable dire   ctly. It only CHECKS - it cannot change the value
+    being saved. Services call `normalize_phone` to get the E.164 string to store.
+
+    Empty values are skipped by Django's field machinery before this runs, so a
+    `blank=True` field stays optional.
+    """
+    if value in (None, ""):
+        return value
+    try:
+        normalize_phone(value=value, region=region, policy=policy)
+    except AppValidationError as exc:
+        raise ValidationError(exc.message, code="invalid_phone") from exc
     return value
+
 
 # PHONE_REGEX = r"^\+?1?\d{9,15}$"
 # Two files here — constants.py (the regex) and validators/phone.py (the check)
