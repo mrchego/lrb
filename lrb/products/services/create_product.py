@@ -22,7 +22,7 @@ def create_product(*, company, name, sku, price, is_active=True):
     if not sku:
         raise AppValidationError(message="SKU is required.", field="sku")
 
-    currency = get_company_currency(company_id=company.pk).code
+    currency = get_company_currency(company_id=company.pk, lock=True).code
     price = validate_money_amount(amount=price, currency=currency, field="price")
 
     try:

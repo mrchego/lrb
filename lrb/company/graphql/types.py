@@ -2,6 +2,7 @@ from typing import Optional
 
 from strawberry import auto
 import strawberry
+from strawberry.scalars import JSON
 import strawberry_django
 
 from lrb.accounts.graphql.types import ImageType
@@ -44,3 +45,5 @@ class CompanySettingsType:
     language: auto
     date_format: auto
     theme: auto
+    brand_color: auto
+    appearance: JSON

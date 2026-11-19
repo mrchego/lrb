@@ -1,7 +1,9 @@
 import strawberry
 from typing import Optional
 from strawberry.file_uploads import Upload
+from decimal import Decimal
 
+from strawberry.scalars import JSON
 
 @strawberry.input
 class CreateCompanyInput:
@@ -26,6 +28,7 @@ class UpdateCompanyInput:
     city: Optional[str] = None
     address: Optional[str] = None
     is_active: Optional[bool] = None
+    
 
 
 @strawberry.input
@@ -52,3 +55,7 @@ class UpdateCompanySettingsInput:
     language: Optional[str] = None
     date_format: Optional[str] = None
     theme: Optional[str] = None
+    currency: Optional[str] = None
+    exchange_rate: Optional[Decimal] = None
+    brand_color: Optional[str] = None
+    appearance: Optional[JSON] = None

@@ -9,6 +9,12 @@ class ProductsConfig(AppConfig):
     verbose_name = _("Products")
 
     def ready(self):
-        from lrb.core.money.usage import register_money_usage_check
+        from lrb.core.money.usage import register_money_usage
         from lrb.products.models import Product
-        register_money_usage_check(lambda *, company: Product.objects.filter(company=company).exists())
+        from lrb.products.services.convert_product_prices import convert_product_prices
+
+        register_money_usage(
+            name="products",
+            has_data=lambda *, company: Product.objects.filter(company=company).exists(),
+            convert=convert_product_prices,
+        )

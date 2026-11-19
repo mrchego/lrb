@@ -61,9 +61,13 @@ class CompanyMutation:
                 company=company,
                 timezone=input.timezone,
                 currency=input.currency,
+                exchange_rate=input.exchange_rate,
                 language=input.language,
                 date_format=input.date_format,
                 theme=input.theme,
+                brand_color=input.brand_color,
+                appearance=input.appearance,
+                actor=current,
             )
             return CompanySettingsMutationPayload(success=True, settings=settings)
         except ApplicationError as e:

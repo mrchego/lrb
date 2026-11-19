@@ -1,25 +1,33 @@
-"""Which apps hold money amounts for a company.
+"""Which apps hold money for a company, and how to convert it.
 
-Amounts are stored as bare numbers, so changing the company currency would
-silently relabel them (1,000 KES would become 1,000 USD, no conversion). Any
-app that stores money registers a check here; while one says "yes", the
-currency is locked.
+Each app that stores money registers ONE entry here. Changing the company
+currency then converts every registered app in the same transaction.
 
-Register from the app's AppConfig.ready():
-
-    register_money_usage_check(lambda *, company: Invoice.objects.filter(company=company).exists())
+    register_money_usage(name="orders", has_data=..., convert=...)
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Callable
 
-MoneyUsageCheck = Callable[..., bool]
-_checks: list[MoneyUsageCheck] = []
+
+@dataclass(frozen=True)
+class MoneyUsage:
+    name: str
+    has_data: Callable[..., bool]  # (*, company) -> bool
+    convert: Callable[..., int]    # (*, company, rate, to_currency) -> rows changed
 
 
-def register_money_usage_check(check: MoneyUsageCheck) -> None:
-    _checks.append(check)
+_usages: dict[str, MoneyUsage] = {}  # keyed by name: registering twice is harmless
+
+
+def register_money_usage(*, name: str, has_data, convert) -> None:
+    _usages[name] = MoneyUsage(name=name, has_data=has_data, convert=convert)
 
 
 def company_has_money_data(*, company) -> bool:
-    return any(check(company=company) for check in _checks)
+    return any(u.has_data(company=company) for u in _usages.values())
+
+
+def money_usages() -> list[MoneyUsage]:
+    return list(_usages.values())

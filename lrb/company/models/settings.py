@@ -12,6 +12,8 @@ class CompanySettings(BaseModel):
     language = models.CharField(max_length=10, default="en")
     date_format = models.CharField(max_length=20, default="YYYY-MM-DD")
     theme = models.CharField(max_length=20, default="light")
+    brand_color = models.CharField(max_length=7, blank=True, default="")
+    appearance = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["company__name"]

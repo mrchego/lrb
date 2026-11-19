@@ -1,3 +1,4 @@
+
 from django.db import IntegrityError, transaction
 
 from lrb.core.exceptions import (
@@ -15,32 +16,53 @@ from lrb.products.selectors.get_product import get_product
 def update_product(
     *, product_id, company_id, name=None, sku=None, price=None, is_active=None
 ):
-    product = get_product(product_id=product_id, company_id=company_id, for_update=True)
+    # 1. Lock company settings first and get its currency.
+    currency = get_company_currency(company_id=company_id, lock=True).code
+
+    # 2. Lock the product row second.
+    product = get_product(
+        product_id=product_id,
+        company_id=company_id,
+        for_update=True,
+    )
+
     if not product:
         raise ApplicationError(
             message="Product not found.", code=ErrorCode.VALIDATION_ERROR
         )
 
+    # 3. Update product name if provided.
     if name is not None:
         name = name.strip()
         if len(name) < 2:
             raise AppValidationError(
-                message="Product name must be at least 2 characters long.", field="name"
+                message="Product name must be at least 2 characters long.",
+                field="name",
             )
         product.name = name
 
+    # 4. Update SKU if provided.
     if sku is not None:
         sku = sku.strip()
         if not sku:
-            raise AppValidationError(message="SKU is required.", field="sku")
+            raise AppValidationError(
+                message="SKU is required.", field="sku"
+            )
         product.sku = sku
 
-    currency = get_company_currency(company_id=company_id).code
-    product.price = validate_money_amount(amount=price, currency=currency, field="price")
+    # 5. Update price only if provided.
+    if price is not None:
+        product.price = validate_money_amount(
+            amount=price,
+            currency=currency,
+            field="price",
+        )
 
+    # 6. Update active status if provided.
     if is_active is not None:
         product.is_active = is_active
 
+    # 7. Save changes.
     try:
         product.save()
     except IntegrityError as e:
@@ -50,8 +72,8 @@ def update_product(
                 code=ErrorCode.BUSINESS_RULE,
             )
         raise
-    return product
 
+    return product
 
 
 # 1. Purpose

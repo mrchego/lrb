@@ -30,7 +30,7 @@ class MoneyQuery:
         return CurrencyType(code=c.code, name=c.name, decimals=c.decimals)
 
     @strawberry.field
-    def currency_locked(self, info: strawberry.Info) -> bool:
+    def currency_has_money_data(self, info: strawberry.Info) -> bool:
         current = get_current_user_or_raise(info)
         company = get_company(company_id=current.company_id)
         return company_has_money_data(company=company)
