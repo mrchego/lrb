@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING
-from django.contrib.auth.models import UserManager as DjangoUserManager
 
+from django.contrib.auth.models import UserManager as DjangoUserManager
 
 if TYPE_CHECKING:
     from .models import User
- 
+
+
 class UserManager(DjangoUserManager["User"]):
     def _create_user(self, email: str, password: str | None, **extra_fields):
         if not email:
@@ -14,13 +15,18 @@ class UserManager(DjangoUserManager["User"]):
         user.set_password(password)
         user.save(using=self._db)
         return user
-    
-    def create_user(self, email:str, password:str | None = None, **extra_fields):
+
+    def create_user(self, email: str, password: str | None = None, **extra_fields):
         extra_fields.setdefault("is_staff", False)
         extra_fields.setdefault("is_superuser", False)
         return self._create_user(email, password, **extra_fields)
-    
-    def create_superuser(self, email: str, password: str | None =  None, **extra_fields):
+
+    def create_superuser(self, email: str, password: str | None = None, **extra_fields):
+        """Platform developer only. Never belongs to a company."""
+        if extra_fields.get("company") or extra_fields.get("company_id"):
+            raise ValueError(
+                "Superusers are platform developers and cannot belong to a company."
+            )
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         if extra_fields.get("is_staff") is not True:
@@ -28,8 +34,6 @@ class UserManager(DjangoUserManager["User"]):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
         return self._create_user(email, password, **extra_fields)
-    
-    
 #     1. Purpose — What problem does this solve?
 
 # Django's built-in User model normally uses username as the login field. Your RBAC project uses email-based login instead (no username field at all). Django's default manager (UserManager) doesn't know how to create users that way — it expects a username.

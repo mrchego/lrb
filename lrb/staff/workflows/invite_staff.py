@@ -1,9 +1,12 @@
+from typing import Iterable, Optional
+
 from django.db import transaction
 from django.utils import timezone
 
 from lrb.accounts.selectors.get_user_by_email import get_user_by_email
 from lrb.accounts.services.create_user import create_user
 from lrb.authorization.models.user_role import UserRole
+from lrb.authorization.services.set_user_permissions import set_user_permissions
 from lrb.core.constants import INVITATION_EXPIRY_DAYS
 from lrb.core.exceptions import ApplicationError, ErrorCode
 from lrb.staff.models import Invitation
@@ -21,6 +24,7 @@ def invite_staff(
     request,
     can_login=True,
     role=None,
+    permission_codenames: Optional[Iterable[str]] = None,
 ):
     if get_user_by_email(email=email):
         raise ApplicationError(
@@ -34,6 +38,11 @@ def invite_staff(
         )
     if role is not None and role.company_id != company.id:
         raise ApplicationError(message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND)
+    if permission_codenames is not None and not can_login:
+        raise ApplicationError(
+            message="Permissions can only be set for staff who can log in.",
+            code=ErrorCode.VALIDATION_ERROR,
+        )
 
     user = create_user(
         email=email,
@@ -43,12 +52,19 @@ def invite_staff(
         company=company,
         can_login=False,
         is_active=not can_login,
-        is_staff=False,
     )
 
     invitation = None
     if can_login:
         UserRole.objects.create(user=user, role=role)
+        # None  -> user simply gets the role's permissions (old behaviour).
+        # list  -> the exact ticked set; differences from the role become overrides.
+        if permission_codenames is not None:
+            set_user_permissions(
+                user_id=user.id,
+                company_id=str(company.id),
+                permission_codenames=permission_codenames,
+            )
         invitation = Invitation.objects.create(
             email=email,
             company=company,
@@ -59,7 +75,6 @@ def invite_staff(
         )
         send_invitation_email(request=request, invitation=invitation)
     return user, invitation
-
 
 
 # Yes — you have the right idea. The important thing is that None is the initial value, and later the variable can be reassigned to an actual Invitation object.

@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from lrb.accounts.models import User
 
 def user_has_permission(*, user: User, codename:str) -> bool:
-    if user.is_superuser:
+    if user.has_founder_access:
         return True
     from lrb.authorization.selectors.get_user_permissions import get_user_permission_codenames
     return codename in get_user_permission_codenames(user=user)
@@ -35,7 +35,7 @@ def user_has_permission(*, user: User, codename:str) -> bool:
 # return True — if the user is a superuser, stop here immediately and say "yes, they have this permission" — no further checking needed.
 
 # Why?
-# This matches your project's require_owner() vs require_permission() split. A superuser (the "owner" tier) should bypass the whole granular permission system entirely — they're not meant to need individual permissions assigned; they can do everything by definition. This is a classic short-circuit / early-exit pattern: handle the special, simple case first and return immediately, so the rest of the function only has to deal with the "normal user" case.
+# This matches your project's require_founder() vs require_permission() split. A superuser (the "owner" tier) should bypass the whole granular permission system entirely — they're not meant to need individual permissions assigned; they can do everything by definition. This is a classic short-circuit / early-exit pattern: handle the special, simple case first and return immediately, so the rest of the function only has to deal with the "normal user" case.
 
 # python
 #     from lrb.authorization.selectors.get_user_permissions import get_user_permission_codenames

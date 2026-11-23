@@ -43,7 +43,7 @@ class RoleQuery:
         self, info: strawberry.Info, user_id: strawberry.ID
     ) -> EffectivePermissionType:
         current = get_current_user_or_raise(info, message="Authentication required.")
-        if not current.is_superuser and str(current.id) != str(user_id):
+        if not current.has_founder_access and str(current.id) != str(user_id):
             raise AppPermissionDeniedError(
                 message="You can only view your own permissions."
             )
@@ -62,7 +62,7 @@ class RoleQuery:
         self, info: strawberry.Info, user_id: strawberry.ID
     ) -> List[UserPermissionOverrideType]:
         current = get_current_user_or_raise(info, message="Authentication required.")
-        if not current.is_superuser and str(current.id) != str(user_id):
+        if not current.has_founder_access and str(current.id) != str(user_id):
             raise AppPermissionDeniedError(
                 "You can only view your own permission overrides."
             )

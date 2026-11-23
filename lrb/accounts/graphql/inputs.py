@@ -36,11 +36,11 @@ class BulkLockUserInput:
     duration_minutes: int = 15
 
 @strawberry.input
-class PromoteToOwnerInput:
+class PromoteToCofounderInput:
     user_id: strawberry.ID
 
 @strawberry.input
-class DemoteOwnerInput:
+class DemoteCofounderInput:
     user_id: strawberry.ID
 
 # New concept: @strawberry.type vs @strawberry.input
@@ -121,23 +121,23 @@ class DemoteOwnerInput:
 
 # New pattern: List[strawberry.ID] — instead of one ID, a list of IDs. This is the plural version of UserIdInput/LockUserInput — used for admin actions that apply to many users at once (e.g., "lock these 5 accounts"). BulkLockUserInput is literally BulkUserIdsInput + the same duration_minutes default seen in LockUserInput — the developer combined two smaller patterns you've already learned.
 
-# PromoteToOwnerInput and DemoteOwnerInput — same shape, different meaning
+# PromoteToCofounderInput and DemoteCofounderInput — same shape, different meaning
 # python
 # @strawberry.input
-# class PromoteToOwnerInput:
+# class PromoteToCofounderInput:
 #     user_id: strawberry.ID
 
 # @strawberry.input
-# class DemoteOwnerInput:
+# class DemoteCofounderInput:
 #     user_id: strawberry.ID
 
 # These are structurally identical to UserIdInput — one required user_id. Why not just reuse UserIdInput for these too?
 
 # This is a real design choice, worth sitting with: Strawberry/Python would happily let you reuse UserIdInput everywhere. But the developer chose to make separate, specifically-named input types. Reasons this is often the right call:
 
-# Clarity in the GraphQL schema — a client browsing your API sees a mutation called promoteToOwner(input: PromoteToOwnerInput!), which is self-explanatory, versus promoteToOwner(input: UserIdInput!), which is vague and reused everywhere.
-# Room to grow independently. If tomorrow "promote to owner" needs an extra field (like a confirmation reason), you only change PromoteToOwnerInput — you don't risk breaking every other mutation that happened to share UserIdInput.
-# Given this is require_owner()-gated territory (owner promotion/demotion is about as sensitive as actions get in an RBAC system), keeping each action's input isolated also makes it easier to reason about security per-mutation, rather than worrying about shared-type side effects.
+# Clarity in the GraphQL schema — a client browsing your API sees a mutation called promoteToCofounder(input: PromoteToCofounderInput!), which is self-explanatory, versus promoteToCofounder(input: UserIdInput!), which is vague and reused everywhere.
+# Room to grow independently. If tomorrow "promote to owner" needs an extra field (like a confirmation reason), you only change PromoteToCofounderInput — you don't risk breaking every other mutation that happened to share UserIdInput.
+# Given this is require_founder()-gated territory (owner promotion/demotion is about as sensitive as actions get in an RBAC system), keeping each action's input isolated also makes it easier to reason about security per-mutation, rather than worrying about shared-type side effects.
 # Connections
 
 # Each input type here pairs with exactly one mutation resolver elsewhere in your schema (e.g., lockUser(input: LockUserInput!) -> SimpleMutationPayload). Following your project's service/selector separation, the resolver itself should stay thin: unpack the input's fields and hand them as keyword arguments to a service function (e.g., lock_user(user_id=input.user_id, duration_minutes=input.duration_minutes)), which then does the real work inside @transaction.atomic.

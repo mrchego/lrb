@@ -68,7 +68,7 @@ def state(obj, *fields):
 
 
 USER_FIELDS = (
-    "is_active", "can_login", "is_superuser", "is_staff", "locked_until",
+    "is_active", "can_login", "is_superuser", "is_staff",  "is_founder", "is_cofounder",  "locked_until",
     "failed_login_attempts", "password_reset_required", "first_name", "last_name",
 )
 PRODUCT_FIELDS = ("name", "sku", "price", "is_active")

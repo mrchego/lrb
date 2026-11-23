@@ -20,7 +20,7 @@ class ErrorCode:
     USER_NOT_FOUND = "USER_NOT_FOUND"
     USER_ALREADY_EXISTS = "USER_ALREADY_EXISTS"
     ROLE_NOT_FOUND = "ROLE_NOT_FOUND"
-    LAST_OWNER = "LAST_OWNER"
+    LAST_FOUNDER = "LAST_FOUNDER"
     CANNOT_MODIFY_FOUNDER = "CANNOT_MODIFY_FOUNDER"
 
 
@@ -110,12 +110,12 @@ class BusinessRuleViolationError(ApplicationError):
 # class BusinessRuleViolationError(ApplicationError):
 #     def __init__(self, message, code=None):
 #         super().__init__(message, code=code or ErrorCode.BUSINESS_RULE)
-# This one's different from the other two — it does accept an optional code from the caller. If given, it uses that specific code (e.g., ErrorCode.LAST_OWNER); if not given, it falls back to the generic ErrorCode.BUSINESS_RULE. This is the only one of the three that lets you be more specific about which business rule was broken.
+# This one's different from the other two — it does accept an optional code from the caller. If given, it uses that specific code (e.g., ErrorCode.LAST_FOUNDER); if not given, it falls back to the generic ErrorCode.BUSINESS_RULE. This is the only one of the three that lets you be more specific about which business rule was broken.
 # One real design question for you
 
-# Look at AppValidationError and AppPermissionDeniedError — neither lets the caller override its code. But BusinessRuleViolationError does. Given what LAST_OWNER and CANNOT_MODIFY_FOUNDER are (specific business rules, sitting in the filing cabinet), why do you think it makes sense for business rule errors specifically to need more specific codes, while validation and permission errors are fine always using one single generic code each? -> AppValidationError and AppPermissionDeniedError represent broad categories of errors, so a single code (VALIDATION_ERROR or PERMISSION_DENIED) is usually enough. The message or field provides the specific details.
+# Look at AppValidationError and AppPermissionDeniedError — neither lets the caller override its code. But BusinessRuleViolationError does. Given what LAST_FOUNDER and CANNOT_MODIFY_FOUNDER are (specific business rules, sitting in the filing cabinet), why do you think it makes sense for business rule errors specifically to need more specific codes, while validation and permission errors are fine always using one single generic code each? -> AppValidationError and AppPermissionDeniedError represent broad categories of errors, so a single code (VALIDATION_ERROR or PERMISSION_DENIED) is usually enough. The message or field provides the specific details.
 
-# BusinessRuleViolationError, however, represents many different business rules, each with a different meaning. Codes like LAST_OWNER or CANNOT_MODIFY_FOUNDER identify which exact business rule was violated, allowing the frontend or other clients to react differently if needed.
+# BusinessRuleViolationError, however, represents many different business rules, each with a different meaning. Codes like LAST_FOUNDER or CANNOT_MODIFY_FOUNDER identify which exact business rule was violated, allowing the frontend or other clients to react differently if needed.
 
 # In simple terms:
 
@@ -129,7 +129,7 @@ class BusinessRuleViolationError(ApplicationError):
 
 # A validation error — the frontend usually just shows the message text near the field and stops. It doesn't need to branch its behavior based on which validation failed.
 # A permission error — the frontend usually just shows "not allowed" and maybe redirects. Same code every time is fine.
-# A business rule error — this is where it changes. If LAST_OWNER fires (someone tried to remove the last owner of a company), maybe the frontend shows a specific modal: "You must assign a new owner first." If CANNOT_MODIFY_FOUNDER fires, maybe it shows a totally different message or disables a button preemptively next time. The frontend's actual behavior differs depending on which one happened — so a single shared code wouldn't give it enough information to know which behavior to trigger.
+# A business rule error — this is where it changes. If LAST_FOUNDER fires (someone tried to remove the last owner of a company), maybe the frontend shows a specific modal: "You must assign a new owner first." If CANNOT_MODIFY_FOUNDER fires, maybe it shows a totally different message or disables a button preemptively next time. The frontend's actual behavior differs depending on which one happened — so a single shared code wouldn't give it enough information to know which behavior to trigger.
 
 # General principle to carry forward: give something a specific, distinguishable code only when a consumer downstream actually needs to tell that case apart from others and do something different about it. If every case gets treated identically no matter what, one generic code is simpler and there's no reason to invent more.
 
@@ -491,7 +491,7 @@ class BusinessRuleViolationError(ApplicationError):
 #     USER_NOT_FOUND = "USER_NOT_FOUND"
 #     USER_ALREADY_EXISTS = "USER_ALREADY_EXISTS"
 #     ROLE_NOT_FOUND = "ROLE_NOT_FOUND"
-#     LAST_OWNER = "LAST_OWNER"
+#     LAST_FOUNDER = "LAST_FOUNDER"
 #     CANNOT_MODIFY_FOUNDER = "CANNOT_MODIFY_FOUNDER"
 
 
@@ -540,7 +540,7 @@ class BusinessRuleViolationError(ApplicationError):
 
 # Design (1):
 
-# BusinessRuleViolationError is the only subclass that accepts a caller-supplied code override (code=None param), while AppValidationError and AppPermissionDeniedError don't. Is that inconsistency intentional or a smell? Think about what LAST_OWNER and CANNOT_MODIFY_FOUNDER are for.
+# BusinessRuleViolationError is the only subclass that accepts a caller-supplied code override (code=None param), while AppValidationError and AppPermissionDeniedError don't. Is that inconsistency intentional or a smell? Think about what LAST_FOUNDER and CANNOT_MODIFY_FOUNDER are for.
 
 # Debugging (1):
 
@@ -774,7 +774,7 @@ class BusinessRuleViolationError(ApplicationError):
 
 # Sometimes you want
 
-# LAST_OWNER
+# LAST_FOUNDER
 
 # Sometimes
 
@@ -788,7 +788,7 @@ class BusinessRuleViolationError(ApplicationError):
 
 # raise BusinessRuleViolationError(
 #     "...",
-#     code="LAST_OWNER",
+#     code="LAST_FOUNDER",
 # )
 
 # can make sense.
@@ -835,7 +835,7 @@ class BusinessRuleViolationError(ApplicationError):
 # ApplicationError(
 #     message="Cannot delete last owner",
 #     code=ErrorCode.BUSINESS_RULE,
-#     reason="LAST_OWNER",
+#     reason="LAST_FOUNDER",
 # )
 
 # Now:
@@ -959,7 +959,7 @@ class BusinessRuleViolationError(ApplicationError):
 # Services should raise ApplicationError subclasses and remain unaware of GraphQL.
 # The GraphQL boundary (middleware, error formatter, or a centralized exception handler) should be responsible for translating those exceptions into client-facing GraphQL errors.
 # Catch ApplicationError when every business exception is handled uniformly; use narrow catches only when specific subclasses require different behavior.
-# The ability for BusinessRuleViolationError to override its code can be justified by domain-specific business rules like LAST_OWNER or CANNOT_MODIFY_FOUNDER, but it also suggests that a separate reason field might better distinguish error category from specific rule.
+# The ability for BusinessRuleViolationError to override its code can be justified by domain-specific business rules like LAST_FOUNDER or CANNOT_MODIFY_FOUNDER, but it also suggests that a separate reason field might better distinguish error category from specific rule.
 # Making field optional for validation errors is a pragmatic choice because not all validation failures map cleanly to a single input, though requiring it for field-specific validations can improve frontend ergonomics if your API evolves to support both field-level and object-level validation.
 
 
@@ -969,7 +969,7 @@ class BusinessRuleViolationError(ApplicationError):
 
 # The actual reasoning is the opposite. Look at what each error is for:
 
-# AppPermissionDeniedError — across your entire app, "you don't have permission to do this" means basically the same thing every time, regardless of which action was denied. require_owner() failing on a delete, or require_permission("edit_role") failing on an update — both are the same category of failure from the user's point of view, and one generic sentence covers all of them adequately. That's precisely why it's safe to give it a default: the message doesn't need to vary case-by-case to be useful.
+# AppPermissionDeniedError — across your entire app, "you don't have permission to do this" means basically the same thing every time, regardless of which action was denied. require_founder() failing on a delete, or require_permission("edit_role") failing on an update — both are the same category of failure from the user's point of view, and one generic sentence covers all of them adequately. That's precisely why it's safe to give it a default: the message doesn't need to vary case-by-case to be useful.
 # AppValidationError — this is the opposite situation. "Invalid input" is never actually useful on its own. Every validation failure is inherently specific to what was wrong: "Email already exists," "Password must be at least 8 characters," "End date must be after start date." A generic default message here (imagine message="Validation failed") would be actively unhelpful — it tells the user nothing about what to fix. So the class withholds a default on purpose, forcing every call site to supply a real, specific message. No default is a design constraint, not an oversight.
 
 # General principle to bank: whether an exception class should have a default message depends on whether the failure category is inherently generic (safe to default) or inherently specific (a default would just be a placeholder masquerading as information). This is the same "when does trusting a contract make sense vs. when do you need to force the caller to be explicit" reasoning we used earlier for clamp_page_size vs. send_email_task — just applied to message defaults instead of type validation.

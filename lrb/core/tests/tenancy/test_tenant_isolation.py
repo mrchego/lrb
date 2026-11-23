@@ -38,7 +38,7 @@ from lrb.accounts.models import User
 from lrb.accounts.selectors.get_user import get_user
 from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 from lrb.accounts.selectors.list_users import list_users
-from lrb.accounts.services.promote_to_owner import promote_to_owner
+from lrb.accounts.services.promote_to_cofounder import promote_to_cofounder
 from lrb.accounts.services.update_user import update_user
 from lrb.authorization.models.permission import Permission
 from lrb.authorization.models.role import Role
@@ -168,17 +168,17 @@ def atk_restore_user(w):
     return mutation("restoreUser", userId=u.id), "restoreUser", lambda: state(u, *USER_FIELDS)
 
 
-@attack("promoteToOwner")
-def atk_promote_to_owner(w):
+@attack("promoteToCofounder")
+def atk_promote_to_cofounder(w):
     u = w.new_user(w.b)
-    return mutation("promoteToOwner", userId=u.id), "promoteToOwner", lambda: state(u, *USER_FIELDS)
+    return mutation("promoteToCofounder", userId=u.id), "promoteToCofounder", lambda: state(u, *USER_FIELDS)
 
 
-@attack("demoteOwner")
-def atk_demote_owner(w):
+@attack("demoteCofounder")
+def atk_demote_cofounder(w):
     # Non-founder owner on purpose: founder protection would otherwise mask the hole.
-    u = w.new_user(w.b, is_superuser=True)
-    return mutation("demoteOwner", userId=u.id), "demoteOwner", lambda: state(u, *USER_FIELDS)
+    u = w.new_user(w.b, is_cofounder=True)
+    return mutation("demoteCofounder", userId=u.id), "demoteCofounder", lambda: state(u, *USER_FIELDS)
 
 
 def _bulk_user_attack(name, **extra):
@@ -559,9 +559,9 @@ def test_update_user_cannot_move_a_user_between_companies():
 def test_promoting_to_owner_never_grants_django_admin_access(w):
     u = w.new_user(w.a)
     with tenant_context(w.a):
-        promote_to_owner(user_id=u.id, company_id=str(w.a.id))
+        promote_to_cofounder(user_id=u.id, company_id=str(w.a.id))
         u.refresh_from_db()
-    assert u.is_superuser is True and u.is_staff is False
+    assert u.is_cofounder is True and u.is_superuser is False and u.is_staff is False
 
 
 def test_another_companys_user_emails_are_invisible_from_this_schema(w):

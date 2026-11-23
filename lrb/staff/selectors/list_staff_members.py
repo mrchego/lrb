@@ -1,5 +1,7 @@
 from typing import Optional
 
+from django.db.models import Prefetch
+
 from lrb.accounts.models import User
 from lrb.authorization.models.user_role import UserRole
 from lrb.core.pagination import paginate_queryset
@@ -15,14 +17,27 @@ def list_staff_members(
     staff_ids = UserRole.objects.filter(user__company_id=company_id).values_list(
         "user_id", flat=True
     )
-    qs = User.objects.select_related("company").filter(
-        id__in=staff_ids, company_id=company_id
+
+    qs = (
+        User.objects.select_related("company")
+        .filter(id__in=staff_ids, company_id=company_id)
+        .prefetch_related(
+            Prefetch(
+                "user_roles",
+                queryset=UserRole.objects.select_related("role").order_by("role__name"),
+            ),
+            "permission_overrides",
+        )
     )
+
     if can_login is not None:
         qs = qs.filter(can_login=can_login)
-    return paginate_queryset(qs.order_by("-created_at"), limit=limit, offset=offset)
 
-
+    return paginate_queryset(
+        qs.order_by("-created_at"),
+        limit=limit,
+        offset=offset,
+    )
 # 1. First important thing: __ in Django
 
 # You asked about:

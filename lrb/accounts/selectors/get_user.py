@@ -103,7 +103,7 @@ def get_user(*, user_id: str, company_id: str) -> Optional[User]:
 
 # 10. Real project usage
 
-# This is almost certainly the very first line of most write services that take a target user ID — exactly the pattern we sketched in count_active_superusers's "real project usage" section:
+# This is almost certainly the very first line of most write services that take a target user ID — exactly the pattern we sketched in count_active_founders's "real project usage" section:
 
 # python
 # @transaction.atomic
@@ -112,12 +112,12 @@ def get_user(*, user_id: str, company_id: str) -> Optional[User]:
 #     target = get_user(user_id=target_user_id)
 #     if target is None:
 #         return SimpleMutationPayload(success=False, errors=["User not found."])
-#     remaining = count_active_superusers(company_id=target.company_id, exclude_ids=[target_user_id])
+#     remaining = count_active_founders(company_id=target.company_id, exclude_ids=[target_user_id])
 #     if remaining == 0:
 #         return SimpleMutationPayload(success=False, errors=["Cannot deactivate the last active superuser."])
 #     ...
 
-# Notice how all four functions we've now walked through — require_permission, get_user, count_active_superusers, and (implicitly) something like get_current_user earlier in the resolver — compose together into one real service. This is the payoff of the "general pattern recognition" section: once each small function's job is clear, reading the service that combines them becomes much easier.
+# Notice how all four functions we've now walked through — require_permission, get_user, count_active_founders, and (implicitly) something like get_current_user earlier in the resolver — compose together into one real service. This is the payoff of the "general pattern recognition" section: once each small function's job is clear, reading the service that combines them becomes much easier.
 
 # 11. Common beginner mistakes
 

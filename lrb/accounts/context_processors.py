@@ -117,4 +117,4 @@ def allauth_settings(request):
 
 # That reasoning — "expose one setting into templates globally, using Django's designated bridge for exactly this problem, kept intentionally cheap" — is this file.
 
-# You've now covered the full arc from project config (apps.py) through admin, validation, the custom manager, the model itself, forms, and now template context — a nice complete slice of the accounts app. Ready to move into the actual RBAC authorization logic (require_owner() / require_permission()), or a service function that ties several of these pieces together under @transaction.atomic?
+# You've now covered the full arc from project config (apps.py) through admin, validation, the custom manager, the model itself, forms, and now template context — a nice complete slice of the accounts app. Ready to move into the actual RBAC authorization logic (require_founder() / require_permission()), or a service function that ties several of these pieces together under @transaction.atomic?

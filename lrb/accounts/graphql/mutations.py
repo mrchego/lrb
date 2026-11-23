@@ -4,9 +4,9 @@ from lrb.accounts.graphql.inputs import (
     AdminUpdateUserInput,
     BulkLockUserInput,
     BulkUserIdsInput,
-    DemoteOwnerInput,
+    DemoteCofounderInput,
     LockUserInput,
-    PromoteToOwnerInput,
+    PromoteToCofounderInput,
     UpdateProfileInput,
     UserIdInput,
 )
@@ -34,14 +34,14 @@ from lrb.accounts.services.bulk_unlock_users import (
 )
 from lrb.accounts.services.deactivate_user import deactivate_user
 from lrb.accounts.services.delete_user import delete_user
-from lrb.accounts.services.demote_owner import demote_owner
+from lrb.accounts.services.demote_cofounder import demote_cofounder
 from lrb.accounts.services.force_password_reset import force_password_reset
 from lrb.accounts.services.lock_user import lock_user
-from lrb.accounts.services.promote_to_owner import promote_to_owner
+from lrb.accounts.services.promote_to_cofounder import promote_to_cofounder
 from lrb.accounts.services.restore_user import restore_user
 from lrb.accounts.services.unlock_user import unlock_user
 from lrb.accounts.services.update_user import update_user
-from lrb.authorization.decorators import require_owner
+from lrb.authorization.decorators import require_founder
 from lrb.core.exceptions import ApplicationError
 from lrb.core.graphql.errors import format_application_error
 from lrb.core.graphql.payloads import (
@@ -82,7 +82,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def admin_update_user(
         self, info: strawberry.Info, input: AdminUpdateUserInput
     ) -> UserMutationPayload:
@@ -100,7 +100,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def activate_user(
         self, info: strawberry.Info, input: UserIdInput
     ) -> SimpleMutationPayload:
@@ -114,7 +114,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def deactivate_user(
         self, info: strawberry.Info, input: UserIdInput
     ) -> SimpleMutationPayload:
@@ -128,7 +128,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def delete_user(
         self, info: strawberry.Info, input: UserIdInput
     ) -> SimpleMutationPayload:
@@ -142,7 +142,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def lock_user(
         self, info: strawberry.Info, input: LockUserInput
     ) -> SimpleMutationPayload:
@@ -160,7 +160,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def unlock_user(
         self, info: strawberry.Info, input: UserIdInput
     ) -> SimpleMutationPayload:
@@ -174,7 +174,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def force_password_reset(
         self, info: strawberry.Info, input: UserIdInput
     ) -> SimpleMutationPayload:
@@ -190,7 +190,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def restore_user(
         self, info: strawberry.Info, input: UserIdInput
     ) -> SimpleMutationPayload:
@@ -204,13 +204,13 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
-    def promote_to_owner(
-        self, info: strawberry.Info, input: PromoteToOwnerInput
+    @require_founder()
+    def promote_to_cofounder(
+        self, info: strawberry.Info, input: PromoteToCofounderInput
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            promote_to_owner(user_id=input.user_id, company_id=str(current.company_id))
+            promote_to_cofounder(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -218,13 +218,13 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
-    def demote_owner(
-        self, info: strawberry.Info, input: DemoteOwnerInput
+    @require_founder()
+    def demote_cofounder(
+        self, info: strawberry.Info, input: DemoteCofounderInput
     ) -> SimpleMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            demote_owner(user_id=input.user_id, company_id=str(current.company_id))
+            demote_cofounder(user_id=input.user_id, company_id=str(current.company_id))
             return SimpleMutationPayload(success=True)
         except ApplicationError as e:
             return SimpleMutationPayload(
@@ -232,7 +232,7 @@ class UserMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_activate_users(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
@@ -243,7 +243,7 @@ class UserMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_deactivate_users(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
@@ -256,7 +256,7 @@ class UserMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_delete_users(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
@@ -269,7 +269,7 @@ class UserMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_lock_users(
         self, info: strawberry.Info, input: BulkLockUserInput
     ) -> BulkActionPayload:
@@ -283,7 +283,7 @@ class UserMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_unlock_users(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
@@ -294,7 +294,7 @@ class UserMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_force_password_reset(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
@@ -307,7 +307,7 @@ class UserMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_restore_users(
         self, info: strawberry.Info, input: BulkUserIdsInput
     ) -> BulkActionPayload:
@@ -330,7 +330,7 @@ class UserMutation:
 
 # @strawberry.type — a class decorator
 # @strawberry.mutation — a method decorator
-# @require_owner() — another decorator, from your own project
+# @require_founder() — another decorator, from your own project
 # class UserMutation: — class definition
 # self — the first parameter of every method
 # try / except ApplicationError as e: — error handling
@@ -344,16 +344,16 @@ class UserMutation:
 
 # @strawberry.type — tells Strawberry "treat this whole class as a GraphQL type" (specifically, a Mutation type — the class name UserMutation and its placement in your root schema is what makes Strawberry know it's the mutation type).
 # @strawberry.mutation — tells Strawberry "register this one method as a callable GraphQL mutation" (as opposed to a query, which would use @strawberry.field or @strawberry.mutation isn't used for queries).
-# @require_owner() — your own project's decorator, imported from lrb.authorization.decorators. It wraps the method so that before the method's body ever runs, it checks that the caller has "owner" permission. Notice the () after it — require_owner is actually a function that, when called, produces the real decorator. This is called a "decorator factory" (more in section 7).
+# @require_founder() — your own project's decorator, imported from lrb.authorization.decorators. It wraps the method so that before the method's body ever runs, it checks that the caller has "owner" permission. Notice the () after it — require_founder is actually a function that, when called, produces the real decorator. This is called a "decorator factory" (more in section 7).
 
 # Stacking order matters: decorators apply bottom-up, closest-to-the-function first. So for:
 
 # python
 # @strawberry.mutation
-# @require_owner()
+# @require_founder()
 # def admin_update_user(...):
 
-# Python first wraps admin_update_user with require_owner()'s check, then wraps that whole thing with strawberry.mutation's registration. Practically: the permission check happens, and then Strawberry exposes the (already-protected) function to the schema.
+# Python first wraps admin_update_user with require_founder()'s check, then wraps that whole thing with strawberry.mutation's registration. Practically: the permission check happens, and then Strawberry exposes the (already-protected) function to the schema.
 
 # self
 # Every method inside a class takes self as its first parameter. It refers to "the specific object this method is being called on." You never pass it manually — Python fills it in automatically when you call a method on an instance. Here, UserMutation doesn't really use any per-instance data (no self.something), so self is present purely because Strawberry requires normal Python method syntax — it's a formality, not something the code relies on.
@@ -447,7 +447,7 @@ class UserMutation:
 
 # python
 # @strawberry.mutation
-# @require_owner()
+# @require_founder()
 # def X(self, info, input) -> Payload:
 #     current = get_current_user_or_raise(info)
 #     try:
@@ -455,7 +455,7 @@ class UserMutation:
 #         return SimpleMutationPayload(success=True)
 #     except ApplicationError as e:
 #         return SimpleMutationPayload(success=False, errors=[...])
-# admin_update_user — same as update_profile, but edits input.user_id (an admin editing someone else) instead of current.id, and is protected by @require_owner() since normal users shouldn't edit other people.
+# admin_update_user — same as update_profile, but edits input.user_id (an admin editing someone else) instead of current.id, and is protected by @require_founder() since normal users shouldn't edit other people.
 # activate_user, deactivate_user, delete_user, unlock_user, force_password_reset, restore_user — identical shape: call one service with user_id=input.user_id, wrap result in SimpleMutationPayload.
 # lock_user — same, but passes an extra field: duration_minutes=input.duration_minutes.
 
@@ -474,12 +474,12 @@ class UserMutation:
 
 # Here current is used — its company_id and id are passed into the service, so bulk actions stay scoped to the caller's own company and can record who performed the action. Notice: no try/except here. That's a real inconsistency worth flagging (see section 11, Common Mistakes) — either these services never raise ApplicationError, or errors here would crash instead of returning a graceful payload, unlike the rest of the file.
 
-# promote_to_owner and demote_owner go back to the try/except + SimpleMutationPayload shape, with demote_owner additionally passing company_id=str(current.company_id).
+# promote_to_cofounder and demote_cofounder go back to the try/except + SimpleMutationPayload shape, with demote_cofounder additionally passing company_id=str(current.company_id).
 
 # 6. Why?
 
-# Why does almost every mutation call get_current_user_or_raise(info) even though @require_owner() is already checking permissions?
-# These are two different questions: "is anyone logged in at all?" (authentication) vs. "does this logged-in person have owner-level permission?" (authorization). @require_owner() likely still needs to know who the current user is internally to check their permissions — but this method body also needs current itself (for current.id, current.company_id) to actually perform the action. So both are doing necessary, distinct work.
+# Why does almost every mutation call get_current_user_or_raise(info) even though @require_founder() is already checking permissions?
+# These are two different questions: "is anyone logged in at all?" (authentication) vs. "does this logged-in person have owner-level permission?" (authorization). @require_founder() likely still needs to know who the current user is internally to check their permissions — but this method body also needs current itself (for current.id, current.company_id) to actually perform the action. So both are doing necessary, distinct work.
 
 # Why return a "payload" object instead of just raising errors up to Strawberry directly for everything?
 # Two different error strategies are intentionally mixed here:
@@ -507,17 +507,17 @@ class UserMutation:
 
 # 8. Advanced concepts
 
-# A) Decorator factories — @require_owner() vs @require_owner
-# Notice the parentheses. A plain decorator, @require_owner, would mean "here's a ready-made wrapper function, apply it directly." But @require_owner() means: "call require_owner() first (with no arguments), and whatever function that call returns is the actual decorator to apply." This pattern — a function that returns a decorator — is used when a decorator needs configuration. Even though no arguments are passed here, keeping the () keeps it consistent with sibling decorators in your project that do take arguments, like require_permission(codename) (mentioned in your project conventions) — same factory pattern, this one just needs no config.
+# A) Decorator factories — @require_founder() vs @require_founder
+# Notice the parentheses. A plain decorator, @require_founder, would mean "here's a ready-made wrapper function, apply it directly." But @require_founder() means: "call require_founder() first (with no arguments), and whatever function that call returns is the actual decorator to apply." This pattern — a function that returns a decorator — is used when a decorator needs configuration. Even though no arguments are passed here, keeping the () keeps it consistent with sibling decorators in your project that do take arguments, like require_permission(codename) (mentioned in your project conventions) — same factory pattern, this one just needs no config.
 
 # B) Decorator stacking order
 
 # python
 # @strawberry.mutation
-# @require_owner()
+# @require_founder()
 # def admin_update_user(...):
 
-# Reading top-to-bottom you might think strawberry.mutation runs first — it doesn't. Decorators apply bottom-up: Python first wraps the raw function with require_owner(), producing a new "permission-checked" function, and then wraps that whole thing with strawberry.mutation. So the call order when someone actually invokes it is: Strawberry receives the call → hands off to the require_owner-wrapped version → which checks permission → then, if it passes, calls your real admin_update_user body.
+# Reading top-to-bottom you might think strawberry.mutation runs first — it doesn't. Decorators apply bottom-up: Python first wraps the raw function with require_founder(), producing a new "permission-checked" function, and then wraps that whole thing with strawberry.mutation. So the call order when someone actually invokes it is: Strawberry receives the call → hands off to the require_founder-wrapped version → which checks permission → then, if it passes, calls your real admin_update_user body.
 
 # C) Filtering with a comprehension instead of a loop
 # The dict comprehension does in one expression what a for loop + if + .append()/assignment would take four lines to do. It's not just shorter — comprehensions are considered more "Pythonic" (idiomatic) for building a new collection from an existing one, and they're common enough that recognizing the shape instantly ({... for ... in ... if ...}) is a core reading skill.
@@ -551,7 +551,7 @@ class UserMutation:
 # phone: None never reached the service — exactly the filtering behavior from the real file.
 
 # 10. What you should remember
-# A decorator with () after it (@require_owner()) is a factory — it builds the real decorator when Python reads the file. A decorator without () is used directly as-is. Watch for this distinction.
+# A decorator with () after it (@require_founder()) is a factory — it builds the real decorator when Python reads the file. A decorator without () is used directly as-is. Watch for this distinction.
 # current = get_current_user_or_raise(info) can be a pure side-effect call. Not every assigned variable needs to be used later — sometimes the act of calling is the whole point (the auth check), even if the returned value goes unused. Don't assume unused variables are mistakes.
 # {k: v for k, v in d.items() if v is not None} is the standard "keep only the fields that were actually provided" pattern — recognize this shape whenever you see partial/PATCH-style updates.
 # **kwargs at a call site unpacks a dict into keyword arguments — it exists specifically to forward a variable set of fields into a function that only accepts keyword arguments, matching your project's service-layer convention.

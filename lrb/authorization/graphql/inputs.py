@@ -14,7 +14,7 @@ class UpdateRoleInput:
     role_id: strawberry.ID
     name: Optional[str] = None
     permission_codenames: Optional[List[str]] = None
-    is_default: Optional[bool] = False
+    is_default: Optional[bool] = None
 
 @strawberry.input
 class DeleteRoleInput:

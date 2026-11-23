@@ -29,14 +29,20 @@ def require_permission(codename: str):
     return decorator
 
 
-def require_owner():
+def require_founder():
+    """Founder or co-founder: the highest authority inside a company.
+
+    Deliberately NOT tied to Django's is_superuser. That flag belongs to the
+    platform developer and never exists on a company user.
+    """
+
     def decorator(resolver):
         @wraps(resolver)
         def wrapper(self, info, *args, **kwargs):
             user = _tenant_user(info)
-            if not user.is_superuser:
+            if not user.has_founder_access:
                 raise AppPermissionDeniedError(
-                    "Only the company owner can perform this action."
+                    "Only the company founder or a co-founder can perform this action."
                 )
             return resolver(self, info, *args, **kwargs)
 
@@ -45,7 +51,7 @@ def require_owner():
     return decorator
 
 
-# This file is the payoff for everything you've learned so far — require_permission and require_owner are the actual decorators your project's services and resolvers use. It's also the most advanced piece of syntax yet: a decorator that takes an argument, which means three levels of nested functions. Let's build this up slowly, because this pattern trips up almost everyone the first time.
+# This file is the payoff for everything you've learned so far — require_permission and require_founder are the actual decorators your project's services and resolvers use. It's also the most advanced piece of syntax yet: a decorator that takes an argument, which means three levels of nested functions. Let's build this up slowly, because this pattern trips up almost everyone the first time.
 
 # Imports
 # python
@@ -133,9 +139,9 @@ def require_owner():
 # if not user_has_permission(user=user, codename=codename): — here's the closure in action: codename isn't a parameter of wrapper at all — it was captured all the way back from Layer 1 (require_permission(codename)), and wrapper still has access to it. This calls the exact function from your previous file.
 # raise AppPermissionDeniedError(f"Missing permission: {codename}") — a helpful, specific error message naming exactly which permission was missing.
 # return resolver(self, info, *args, **kwargs) — only if both checks pass, finally call the real, original resolver, passing along everything exactly as it was received (self, info, plus whatever extra args/kwargs came in). This is the "gatekeeper" pattern: wrapper runs before the real function, and only lets execution continue to the real logic if all conditions are satisfied.
-# require_owner — same skeleton, different check
+# require_founder — same skeleton, different check
 # python
-# def require_owner():
+# def require_founder():
 #     def decorator(resolver):
 #         @wraps(resolver)
 #         def wrapper(self, info, *args, **kwargs):
@@ -150,7 +156,7 @@ def require_owner():
 #         return wrapper
 #     return decorator
 
-# Notice require_owner() is called with empty parentheses — it takes no arguments (there's no "which permission" to specify; it's a single fixed check: superuser or not). But it still needs all three layers, even with nothing to configure, because @require_owner() (with parentheses) needs a function call to happen first — the outer require_owner() call — before the actual decorator (decorator) is produced. If it were written as a plain two-layer decorator instead (@require_owner, no parentheses, no outer function), it also could have worked structurally — but keeping the same three-layer shape as require_permission makes both decorators consistent and interchangeable-looking at the call site (@require_permission("x") and @require_owner() read the same way), which is a deliberate, worthwhile consistency choice.
+# Notice require_founder() is called with empty parentheses — it takes no arguments (there's no "which permission" to specify; it's a single fixed check: superuser or not). But it still needs all three layers, even with nothing to configure, because @require_founder() (with parentheses) needs a function call to happen first — the outer require_founder() call — before the actual decorator (decorator) is produced. If it were written as a plain two-layer decorator instead (@require_founder, no parentheses, no outer function), it also could have worked structurally — but keeping the same three-layer shape as require_permission makes both decorators consistent and interchangeable-looking at the call site (@require_permission("x") and @require_founder() read the same way), which is a deliberate, worthwhile consistency choice.
 
 # The only logic difference: instead of calling user_has_permission, it directly checks user.is_superuser — matching exactly the short-circuit you saw at the top of user_has_permission itself, but enforced here as an absolute, non-negotiable gate rather than one branch of a broader check.
 
@@ -162,11 +168,11 @@ def require_owner():
 #     ...
 
 # @strawberry.mutation
-# @require_owner()
-# def promote_to_owner(self, info, input: PromoteToOwnerInput) -> UserMutationPayload:
+# @require_founder()
+# def promote_to_cofounder(self, info, input: PromoteToCofounderInput) -> UserMutationPayload:
 #     ...
 
-# This is the enforcement layer sitting directly in front of every sensitive mutation in your schema — including the PromoteToOwnerInput/AdminUpdateUserInput mutations from your second file. When multiple decorators stack like this, they apply bottom-up: require_permission(...) wraps the real resolver first, then @strawberry.mutation wraps that to register it with GraphQL — so the permission check runs before Strawberry even considers it a valid GraphQL call to route through.
+# This is the enforcement layer sitting directly in front of every sensitive mutation in your schema — including the PromoteToCofounderInput/AdminUpdateUserInput mutations from your second file. When multiple decorators stack like this, they apply bottom-up: require_permission(...) wraps the real resolver first, then @strawberry.mutation wraps that to register it with GraphQL — so the permission check runs before Strawberry even considers it a valid GraphQL call to route through.
 
 # What I should remember
 # A decorator that takes an argument needs three nested function layers, not two: outer function (captures the argument), middle function (the real decorator, receives the target function), inner function (the replacement that actually runs).

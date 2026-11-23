@@ -6,7 +6,7 @@ from lrb.core.models.mixins import UUIDMixin, TimeStampedMixin
 from lrb.accounts.managers import UserManager
 from lrb.core.utilis.files import avatar_upload_path
 from lrb.core.validators.phone import validate_phone_number
-
+from django.core.exceptions import ValidationError
 
 class User(UUIDMixin, TimeStampedMixin, AbstractUser):
     username = None
@@ -26,9 +26,16 @@ class User(UUIDMixin, TimeStampedMixin, AbstractUser):
     is_founder = models.BooleanField(
         default=False,
         help_text=_(
-            "The user who originally registered the company. Founders cannot be "
-            "deactivated, locked, deleted, or demoted from ownership by anyone, "
-            "including other owners."
+            "The user who originally registered the company. The founder cannot be "
+            "deactivated, locked, deleted or demoted by anyone, including co-founders."
+        ),
+    )
+    is_cofounder = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Started the company together with the founder. Has the same powers as "
+            "the founder, but can be demoted by another founder or co-founder. "
+            "Never grants Django admin access."
         ),
     )
 
@@ -64,6 +71,23 @@ class User(UUIDMixin, TimeStampedMixin, AbstractUser):
             models.Index(fields=["can_login"]),
         ]
 
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(company__isnull=True)
+                | (models.Q(is_staff=False) & models.Q(is_superuser=False)),
+                name="user_staff_superuser_only_without_company",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(is_founder=True, is_cofounder=True),
+                name="user_not_both_founder_and_cofounder",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(company__isnull=False)
+                | (models.Q(is_founder=False) & models.Q(is_cofounder=False)),
+                name="user_founder_flags_require_company",
+            ),
+        ]
+
     @property
     def full_name(self) -> str:
         return " ".join(part for part in [self.first_name, self.last_name] if part)
@@ -78,6 +102,21 @@ class User(UUIDMixin, TimeStampedMixin, AbstractUser):
 
         return self.locked_until is not None and self.locked_until > timezone.now()
 
+    @property
+    def has_founder_access(self) -> bool:
+        return self.is_founder or self.is_cofounder
+
+    def clean(self):
+        super().clean()
+        if self.company_id and (self.is_staff or self.is_superuser):
+            raise ValidationError(
+                _("Staff and superuser status belong to platform developers only.")
+            )
+        if self.is_founder and self.is_cofounder:
+            raise ValidationError(_("A user cannot be both founder and co-founder."))
+        if (self.is_founder or self.is_cofounder) and not self.company_id:
+            raise ValidationError(_("Only company users can be founders or co-founders."))
+
     def __str__(self) -> str:
         return self.display_name
 
@@ -86,7 +125,7 @@ class User(UUIDMixin, TimeStampedMixin, AbstractUser):
 
 # Every Django project needs some representation of "a person who can log in." Django ships a default User model, but it's deliberately generic — username-based login, no company association, no lockout tracking, no avatar, etc. Real projects almost always need to customize it.
 
-# This file defines your actual User — the central identity in your entire RBAC system. Every permission check (require_owner(), require_permission()), every "who created this record," every login — all of it ultimately points back to an instance of this class.
+# This file defines your actual User — the central identity in your entire RBAC system. Every permission check (require_founder(), require_permission()), every "who created this record," every login — all of it ultimately points back to an instance of this class.
 
 # Why not just use Django's default User as-is? Because your project needs things Django's default doesn't have: email-only login (no username), company membership (multi-tenant RBAC — "which company does this user belong to?"), account lockout after failed logins, a founder flag with special un-removable protections, avatar uploads, phone validation, and password-reset-required tracking. None of that exists in Django's stock model.
 
@@ -326,7 +365,7 @@ class User(UUIDMixin, TimeStampedMixin, AbstractUser):
 # @property for computed, dependency-free values — same shape you'll find on nearly every non-trivial Django model.
 # 14. Real project usage
 
-# This model sits at the absolute center of your RBAC system: require_owner() and require_permission() almost certainly check attributes on request.user (an instance of this exact class) — likely user.company, user.is_founder, and permissions inherited from AbstractUser/PermissionsMixin. Your GraphQL schema's me query, your OTP-based login flow, your admin's UserAdmin(BaseModelAdmin) — all of it operates on instances of this class.
+# This model sits at the absolute center of your RBAC system: require_founder() and require_permission() almost certainly check attributes on request.user (an instance of this exact class) — likely user.company, user.is_founder, and permissions inherited from AbstractUser/PermissionsMixin. Your GraphQL schema's me query, your OTP-based login flow, your admin's UserAdmin(BaseModelAdmin) — all of it operates on instances of this class.
 
 # 15. Common beginner mistakes
 # ❌ Forgetting to set USERNAME_FIELD when customizing the identifier field — login breaks in confusing ways.

@@ -30,7 +30,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 # from typing import Optional
 # from lrb.accounts.models import User
 
-# Same two imports as get_user and get_user_by_email — Optional (built into Python, describes "this type, or None") and User (your own custom model, reached through the lrb.accounts.models path). Nothing new here mechanically. But notice what's missing compared to count_active_superusers, which took a collection of IDs: there's no from typing import Iterable. Hold that thought — it's the first clue toward the bug.
+# Same two imports as get_user and get_user_by_email — Optional (built into Python, describes "this type, or None") and User (your own custom model, reached through the lrb.accounts.models path). Nothing new here mechanically. But notice what's missing compared to count_active_founders, which took a collection of IDs: there's no from typing import Iterable. Hold that thought — it's the first clue toward the bug.
 
 # 3. Signature — every symbol explained
 # python
@@ -42,7 +42,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 
 # user_ids: str — here's the bug. Read literally, this type hint claims: "pass me a single string." But the function's own name is get_users_by_ids (plural!), and — as we'll see in Section 5 — the body uses pk__in=user_ids, Django's "is this value inside this collection?" lookup, which is meant to receive a list of IDs, not one string.
 
-# Compare this to count_active_superusers, which you already looked at:
+# Compare this to count_active_founders, which you already looked at:
 
 # python
 # exclude_ids: Optional[Iterable[str]] = None
@@ -74,7 +74,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 # .objects — Django's automatic query entry point
 # .filter(pk__in=user_ids) — the verb. pk you already know from get_user — "whatever the primary key field is called." The new piece is __in — Django's lookup for "is this value inside this collection?" So pk__in=user_ids means: "find every row whose primary key appears in this collection of IDs." This is the plural sibling of the pk=user_id exact-match you saw in get_user.
 
-# Left side: qs — same naming convention as count_active_superusers, short for "queryset." We store it because we might narrow it further on the next line.
+# Left side: qs — same naming convention as count_active_founders, short for "queryset." We store it because we might narrow it further on the next line.
 
 # Whole line: "Find every User whose primary key is one of the given IDs."
 
@@ -85,7 +85,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 
 # Condition: if company_id: — true only if a company ID was actually provided (not None, not an empty string).
 
-# Right side of the reassignment: qs.filter(company_id=company_id) — narrow the existing query further, keeping only rows where the company_id field matches. Note this is .filter() again, not .exclude() — we're keeping matches, not removing them, which is the opposite operation from what you saw in count_active_superusers.
+# Right side of the reassignment: qs.filter(company_id=company_id) — narrow the existing query further, keeping only rows where the company_id field matches. Note this is .filter() again, not .exclude() — we're keeping matches, not removing them, which is the opposite operation from what you saw in count_active_founders.
 
 # Left side: reassign qs to the narrower version — same pattern, same reason as before: querysets are immutable, so skipping the reassignment would silently discard this scoping.
 
@@ -95,7 +95,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 # python
 # return qs
 
-# The important thing to notice: this returns qs directly — the queryset itself, not qs.count() (like count_active_superusers), not qs.first() (like get_user). It hasn't been executed against the database yet. The actual SQL query only runs the moment something iterates over qs (a for loop, converting to a list(), etc.) — Django calls this "lazy evaluation."
+# The important thing to notice: this returns qs directly — the queryset itself, not qs.count() (like count_active_founders), not qs.first() (like get_user). It hasn't been executed against the database yet. The actual SQL query only runs the moment something iterates over qs (a for loop, converting to a list(), etc.) — Django calls this "lazy evaluation."
 
 # Whole line: "Hand back the (possibly company-scoped) queryset, unexecuted, for the caller to use however they need."
 
@@ -115,11 +115,11 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 
 # 7. Design discussion
 
-# The real design issue here is the optional company_id. Think back to count_active_superusers, where company_id was mandatory — you can't even call that function without specifying a company. Here, it's optional, meaning get_users_by_ids(user_ids=[...]) — with no company at all — is a completely legal call that will search across every company in the system.
+# The real design issue here is the optional company_id. Think back to count_active_founders, where company_id was mandatory — you can't even call that function without specifying a company. Here, it's optional, meaning get_users_by_ids(user_ids=[...]) — with no company at all — is a completely legal call that will search across every company in the system.
 
 # Is that intentional? It might be, for a genuinely cross-company admin/superuser context. But it's also exactly the kind of function where a bug is easy to introduce: imagine a staff member's mutation resolver calls get_users_by_ids(user_ids=submitted_ids) and simply forgets to pass company_id=actor.company_id. Nothing crashes. Nothing warns you. You'd have just built a mutation that lets any staff member fetch (and potentially act on) users belonging to a completely different company — a serious RBAC violation, made possible by an easy-to-forget optional parameter with no enforcement.
 
-# Trade-off worth naming explicitly: making company_id mandatory (like count_active_superusers does) would close this hole, at the cost of losing the ability to do legitimate cross-company lookups from a true platform-admin context. As written, that trade-off is being made silently — there's nothing in the code signaling "hey, caller, you're about to search across every company unless you explicitly opt into scoping." A safer version of this same function might require callers to be explicit either way:
+# Trade-off worth naming explicitly: making company_id mandatory (like count_active_founders does) would close this hole, at the cost of losing the ability to do legitimate cross-company lookups from a true platform-admin context. As written, that trade-off is being made silently — there's nothing in the code signaling "hey, caller, you're about to search across every company unless you explicitly opt into scoping." A safer version of this same function might require callers to be explicit either way:
 
 # python
 # def get_users_by_ids(*, user_ids: Iterable[str], company_id: str | None) -> QuerySet[User]:
@@ -132,7 +132,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 
 # Type-hint the collection parameter as Iterable[str] (or list[str]), never str — a batch parameter that's actually singular-typed is a bug waiting to happen, since strings are themselves iterable and will silently "work" the wrong way.
 # Use pk__in=<collection> for "give me all rows matching any of these IDs."
-# Think hard before making a scoping parameter (like company_id) optional. Ask: "what happens if a caller forgets to pass this?" If the answer is "a security or data-isolation problem," strongly consider making it mandatory instead, the way count_active_superusers does.
+# Think hard before making a scoping parameter (like company_id) optional. Ask: "what happens if a caller forgets to pass this?" If the answer is "a security or data-isolation problem," strongly consider making it mandatory instead, the way count_active_founders does.
 # Return the queryset unevaluated if callers might need to further filter, order, paginate, or just count — don't force early evaluation with list() unless you specifically want that.
 # Add a return type hint even for querysets — -> QuerySet[User] — so a reader doesn't have to read the body to know they're getting a lazy queryset rather than a materialized list.
 # 9. General pattern recognition
@@ -146,7 +146,7 @@ def get_users_by_ids(*, user_ids: Iterable[str], company_id: str) -> QuerySet[Us
 #         qs = qs.filter(<scope_field>=<scope>)
 #     return qs
 
-# The defining trait: it returns the queryset itself, not a count (count_active_superusers), not a single object (get_user) — because the caller needs the flexibility to do more with the results before deciding what to actually fetch.
+# The defining trait: it returns the queryset itself, not a count (count_active_founders), not a single object (get_user) — because the caller needs the flexibility to do more with the results before deciding what to actually fetch.
 
 # 10. Real project usage
 

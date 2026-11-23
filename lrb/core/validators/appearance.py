@@ -6,6 +6,7 @@ SURFACES = ("neutral", "warm", "cool", "brand")
 INTENSITIES = ("subtle", "soft", "rich")
 SIDEBARS = ("match", "tinted", "dark", "brand")
 RADII = ("sharp", "default", "soft", "round")
+CHARTS = ("varied", "shades")
 COLOR_SLOTS = ("background", "card", "sidebar", "foreground", "border")
 MODES = ("light", "dark")
 
@@ -14,6 +15,7 @@ _CHOICES = (
     ("intensity", INTENSITIES),
     ("sidebar", SIDEBARS),
     ("radius", RADII),
+    ("charts", CHARTS),
 )
 
 
@@ -34,7 +36,7 @@ def validate_appearance(*, value) -> dict:
     if not isinstance(value, dict):
         raise _invalid()
 
-    unknown = set(value) - {"surface", "intensity", "sidebar", "radius", "overrides"}
+    unknown = set(value) - {"surface", "intensity", "sidebar", "radius", "charts", "overrides"}
     if unknown:
         raise _invalid()
 

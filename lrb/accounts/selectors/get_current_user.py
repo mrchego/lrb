@@ -41,14 +41,14 @@ def get_current_user(info):
 # A single parameter, no type hint, no default value. This is the plainest possible parameter — just a placeholder name, like Dear _______.
 
 # No *, no keyword-only enforcement
-# Notice this is a departure from what you've seen in your service functions (require_permission, count_active_superusers), which force keyword arguments. Why is this one different? Because this isn't one of your custom service functions — it's a GraphQL resolver-style helper. Strawberry (like most GraphQL libraries) calls resolvers with info as a positional argument by convention; you don't get to choose keyword-only here because you're not the one calling it — the framework is.
+# Notice this is a departure from what you've seen in your service functions (require_permission, count_active_founders), which force keyword arguments. Why is this one different? Because this isn't one of your custom service functions — it's a GraphQL resolver-style helper. Strawberry (like most GraphQL libraries) calls resolvers with info as a positional argument by convention; you don't get to choose keyword-only here because you're not the one calling it — the framework is.
 
 # No ->  return type hint
 # Also worth noticing: no promise about what type comes back. We'll see why in a moment — this function actually returns two different kinds of things depending on the situation, which makes a single clean type hint awkward without importing Optional (in fact, technically this should probably be -> Optional[User], and its absence here is a small inconsistency worth flagging, not a rule you should copy).
 
 # 4. Classes
 
-# No class here, and for the same reason as count_active_superusers: this function has no state to carry between calls. Every time it's invoked, it does one thing (look at this specific request) and either hands back a user or None. There's nothing to instantiate.
+# No class here, and for the same reason as count_active_founders: this function has no state to carry between calls. Every time it's invoked, it does one thing (look at this specific request) and either hands back a user or None. There's nothing to instantiate.
 
 # 5. Body — line by line
 # Line 1

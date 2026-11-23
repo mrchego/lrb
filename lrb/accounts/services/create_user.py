@@ -1,38 +1,44 @@
-from __future__ import annotations
 from typing import Optional
-from django.db import transaction, IntegrityError
+
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+
 from lrb.accounts.models import User
+from lrb.accounts.services.normalize_user_phone import normalize_user_phone
 from lrb.company.models.company import Company
-from lrb.core.validators.password import validate_password_strength
 from lrb.core.exceptions import (
     AppValidationError,
     BusinessRuleViolationError,
     ErrorCode,
 )
 from lrb.core.validators.email import validate_email
-from lrb.accounts.services.normalize_user_phone import normalize_user_phone
+from lrb.core.validators.password import validate_password_strength
 
 
 @transaction.atomic
 def create_user(
     *,
     email: str,
-    first_name:str,
-    last_name:str,
+    first_name: str,
+    last_name: str,
     password: Optional[str] = None,
     phone: Optional[str] = None,
     avatar=None,
     company: Optional[Company] = None,
     can_login: bool = True,
-    is_active: bool =True,
-    is_staff: bool =False,
-    is_superuser: bool =False,
-    is_founder: bool =False,
-)-> User:
+    is_active: bool = True,
+    is_founder: bool = False,
+    is_cofounder: bool = False,
+) -> User:
+    """Create a COMPANY user.
+
+    There is deliberately no is_staff / is_superuser parameter: those two flags
+    belong to the platform developer only and are created with
+    `manage.py createsuperuser`. Passing them here is a TypeError, so no code
+    path (registration, invitations, tests) can grant them by accident.
+    """
     validate_email(email)
     phone = normalize_user_phone(phone=phone, company=company)
-
     if password is not None:
         try:
             validate_password_strength(password)
@@ -49,9 +55,8 @@ def create_user(
         company=company,
         can_login=can_login,
         is_active=is_active,
-        is_staff=is_staff,
-        is_superuser=is_superuser,
         is_founder=is_founder,
+        is_cofounder=is_cofounder,
     )
 
     if password is not None:
@@ -71,9 +76,6 @@ def create_user(
         raise AppValidationError(message, field=field)
     except IntegrityError:
         raise BusinessRuleViolationError(code=ErrorCode.USER_ALREADY_EXISTS)
-    
-    
-    
     
 # 1. Purpose — Why this exists
 

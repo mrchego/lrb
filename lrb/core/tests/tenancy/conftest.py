@@ -130,11 +130,12 @@ def _build_world() -> dict:
     role_a = new_role(a, all_codenames)
     role_b = new_role(b, ["products.view_product"])
     # Company A: founder-owner + a staff member holding every permission.
-    owner_a = new_user(a, is_superuser=True, is_founder=True)
+    owner_a = new_user(a, is_founder=True)
+    cofounder_a = new_user(a, is_cofounder=True)
     staff_a = new_user(a, role=role_a)
     product_a = new_product(a)
     # Company B: founder-owner + a staff member with a role.
-    owner_b = new_user(b, is_superuser=True, is_founder=True)
+    owner_b = new_user(b, is_founder=True)
     staff_b = new_user(b, role=role_b)
     product_b = new_product(b)
     return {

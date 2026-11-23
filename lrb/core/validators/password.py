@@ -127,7 +127,7 @@ def validate_password_strength(password: str) -> None:
 
 # 9. General pattern recognition
 
-# This is the guard clause / fail-fast pattern: check for the invalid case first, raise immediately if found, and otherwise let execution fall through naturally to an implicit "everything's fine." You'll recognize this same shape constantly — in require_owner()/require_permission() (check "not allowed," raise, otherwise fall through), in view functions that reject bad input early, and in service functions that validate their arguments before doing real work.
+# This is the guard clause / fail-fast pattern: check for the invalid case first, raise immediately if found, and otherwise let execution fall through naturally to an implicit "everything's fine." You'll recognize this same shape constantly — in require_founder()/require_permission() (check "not allowed," raise, otherwise fall through), in view functions that reject bad input early, and in service functions that validate their arguments before doing real work.
 
 # The signal to look for: a function with no else, whose entire body is one or more if <bad condition>: raise ... blocks. That shape is a guard clause validator.
 

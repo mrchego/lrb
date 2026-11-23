@@ -29,9 +29,8 @@ class UserType:
     phone: auto
     can_login: auto
     is_active: auto
-    is_staff: auto
-    is_superuser: auto
     is_founder: auto
+    is_cofounder: auto
     password_reset_required: auto
     last_password_change: auto
     failed_login_attempts: auto
@@ -76,6 +75,15 @@ class UserType:
         return sorted(
             (ur.role for ur in self.user_roles.all()), key=lambda r: r.name
         )
+
+    @strawberry.field
+    def has_founder_access(self) -> bool:
+        return self.has_founder_access
+
+    @strawberry.field
+    def has_custom_permissions(self) -> bool:
+        # uses the prefetch below, so no extra query per row
+        return len(self.permission_overrides.all()) > 0
 
 @strawberry.type
 class UserConnection:

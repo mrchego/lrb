@@ -4,7 +4,7 @@ from django.db import transaction
 from lrb.core.exceptions import ApplicationError
 from lrb.core.services.bulk_result import BulkActionResult
 from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
-from lrb.accounts.services.ownership_guard import assert_not_last_owner
+from lrb.accounts.services.founder_guard import assert_not_last_founder
 
 def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_user_id:str) -> BulkActionResult:
     result = BulkActionResult()
@@ -24,7 +24,7 @@ def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_us
             continue
 
         try:
-            assert_not_last_owner(user=user, company_id=company_id, action="deactivated")
+            assert_not_last_founder(user=user, company_id=company_id, action="deactivated")
         except ApplicationError as e:
             result.add_failure(item_id=uid, reason=str(e.message))
             continue
@@ -53,7 +53,7 @@ def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_us
 
 # python
 # try:
-#     assert_not_last_owner(user=user, company_id=company_id, action="deactivated")
+#     assert_not_last_founder(user=user, company_id=company_id, action="deactivated")
 # except ApplicationError as e:
 #     result.add_failure(user_id=uid, reason=str(e.message))
 #     continue
@@ -102,7 +102,7 @@ def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_us
 # from lrb.core.exceptions import ApplicationError
 # from lrb.core.services.bulk_result import BulkActionResult
 # from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
-# from lrb.accounts.services.ownership_guard import assert_not_last_owner
+# from lrb.accounts.services.founder_guard import assert_not_last_founder
 
 # Identical set to bulk_delete_users — same tools, same reasons, nothing new mechanically.
 
@@ -141,7 +141,7 @@ def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_us
 
 # python
 #     try:
-#         assert_not_last_owner(user=user, company_id=company_id, action="deactivated")
+#         assert_not_last_founder(user=user, company_id=company_id, action="deactivated")
 #     except ApplicationError as e:
 #         result.add_failure(user_id=uid, reason=str(e.message))
 #         continue
@@ -173,7 +173,7 @@ def bulk_deactivate_users(*, user_ids: Iterable[str], company_id:str, current_us
 # Because each function's notion of "done" matches exactly what that function itself changes. delete_user/bulk_delete_users define "deleted" as both flags being False together — checking only one would incorrectly treat a user who's merely deactivated (but can still theoretically log in once reactivated) as "already deleted." deactivate_user/bulk_deactivate_users only ever touch is_active — so checking that one flag alone correctly and completely captures "is there anything left for this specific action to do."
 
 # Why does the ownership guard matter here specifically, when it didn't for activate_user or bulk_force_password_reset?
-# Because deactivating someone is exactly the kind of action assert_not_last_owner exists for — it removes the target's ability to act (an inactive user presumably can't log in or perform any staff actions), which is precisely the "could this leave the company with no working owner" question the guard is built to answer. This sits in the same category as demote_owner, lock_user, and delete_user — all actions that reduce someone's standing — correctly distinct from activate_user's or bulk_force_password_reset's risk profile, which don't.
+# Because deactivating someone is exactly the kind of action assert_not_last_founder exists for — it removes the target's ability to act (an inactive user presumably can't log in or perform any staff actions), which is precisely the "could this leave the company with no working owner" question the guard is built to answer. This sits in the same category as demote_cofounder, lock_user, and delete_user — all actions that reduce someone's standing — correctly distinct from activate_user's or bulk_force_password_reset's risk profile, which don't.
 
 # 7. Design discussion
 

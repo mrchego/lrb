@@ -60,7 +60,7 @@ def create_role(*, company, name, permission_codenames=None, is_default=False) -
 # 2. How is it written?
 
 # @transaction.atomic
-# A decorator (you know these from @strawberry.mutation/@require_owner()) that wraps this whole function in a database transaction. Everything: creating the Role, and attaching its permissions, either all succeeds together, or if anything fails partway through, everything gets rolled back as if none of it happened. No decorator "arguments" here (no ()), because — unlike require_owner() — this decorator doesn't need any configuration; it's used directly.
+# A decorator (you know these from @strawberry.mutation/@require_founder()) that wraps this whole function in a database transaction. Everything: creating the Role, and attaching its permissions, either all succeeds together, or if anything fails partway through, everything gets rolled back as if none of it happened. No decorator "arguments" here (no ()), because — unlike require_founder() — this decorator doesn't need any configuration; it's used directly.
 
 # Why does this matter for this specific function? Look at the body: it creates a Role first, then separately calls .set(permissions) to attach permissions. Those are two separate database operations. Without @transaction.atomic, if the role got created successfully but then something failed while attaching permissions, you'd be left with a half-created role — one that exists but has none of the permissions it was supposed to have. @transaction.atomic guarantees that can't happen: either both steps commit together, or neither does.
 

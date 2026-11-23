@@ -10,6 +10,13 @@ class InviteStaffInput:
     last_name: str
     can_login: bool = True
     role_id: Optional[strawberry.ID] = None
+    permission_codenames: Optional[List[str]] = None
+
+@strawberry.input                                       
+class UpdateStaffAccessInput:
+    user_id: strawberry.ID
+    role_id: strawberry.ID
+    permission_codenames: List[str]
 
 @strawberry.input
 class RevokeInvitationInput:

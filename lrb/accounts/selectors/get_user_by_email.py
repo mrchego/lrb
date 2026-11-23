@@ -29,7 +29,7 @@ def get_user_by_email(*, email: str) -> Optional[User]:
 # from typing import Optional — typing is a module built into Python itself (nothing to install). Optional is a tool for describing, to a human reader, "this could be the given type, or it could be None." It changes nothing about how the code runs — it's documentation with teeth, since editors and type checkers can read it too.
 # from lrb.accounts.models import User — lrb.accounts.models is a dotted path through your own project's folders (lrb → accounts app → models.py file), not something built into Python or Django. User is your project's own custom user model, written by you/your team.
 
-# New thing to notice here versus last time: in count_active_superusers, you imported both Optional and Iterable. This file only needs Optional — because there's no collection-type parameter here, just a single email string in and a single user (or nothing) out. The imports at the top of a file are a pretty reliable preview of what kind of data the function juggles.
+# New thing to notice here versus last time: in count_active_founders, you imported both Optional and Iterable. This file only needs Optional — because there's no collection-type parameter here, just a single email string in and a single user (or nothing) out. The imports at the top of a file are a pretty reliable preview of what kind of data the function juggles.
 
 # 3. Signature — every symbol explained
 # python
@@ -115,7 +115,7 @@ def get_user_by_email(*, email: str) -> Optional[User]:
 # def get_<thing>_by_<field>(*, <field>: <type>) -> Optional[Model]:
 #     return Model.objects.filter(<field>=<field>).first()
 
-# Contrast this with the "guard-check query" pattern from count_active_superusers (filter → conditionally exclude → count) and the "context extraction with fallback" pattern from get_current_user (dig into a nested object → check a condition → return value or None). Three functions, three genuinely different shapes — recognizing which pattern a new function belongs to before you even read the body will speed up how fast you understand new code in this project.
+# Contrast this with the "guard-check query" pattern from count_active_founders (filter → conditionally exclude → count) and the "context extraction with fallback" pattern from get_current_user (dig into a nested object → check a condition → return value or None). Three functions, three genuinely different shapes — recognizing which pattern a new function belongs to before you even read the body will speed up how fast you understand new code in this project.
 
 # 10. Real project usage
 

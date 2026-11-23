@@ -27,14 +27,14 @@ def restore_user(*, user_id: str, company_id: str) -> User:
 # delete_user sets is_active = False and can_login = False. This function is its mirror image — it flips both back to True. It's the "undo" button for a soft-delete.
 
 # Why do you need this as a separate function instead of just calling delete_user again with different values?
-# Because delete_user also runs assert_not_last_owner — logic that only makes sense when removing access, not restoring it. If restore_user reused delete_user with a flag like delete_user(user_id=..., restore=True), you'd end up with one function doing two unrelated jobs, with branching logic inside to handle each — messier and more error-prone than just having two small, single-purpose functions.
+# Because delete_user also runs assert_not_last_founder — logic that only makes sense when removing access, not restoring it. If restore_user reused delete_user with a flag like delete_user(user_id=..., restore=True), you'd end up with one function doing two unrelated jobs, with branching logic inside to handle each — messier and more error-prone than just having two small, single-purpose functions.
 
 # When would this be used in a real project?
 # An admin panel "Reactivate User" button, or a "cancel deletion" action within some grace period before a soft-deleted user is ever hard-deleted for real.
 
 # 2. Imports
 
-# Identical to delete_user's imports, minus ownership_guard — and that omission is meaningful, not accidental. Let's confirm why in the body.
+# Identical to delete_user's imports, minus founder_guard — and that omission is meaningful, not accidental. Let's confirm why in the body.
 
 # 3. Signature
 # python
@@ -61,7 +61,7 @@ def restore_user(*, user_id: str, company_id: str) -> User:
 
 # 5. Design Discussion — the interesting question
 
-# Why doesn't restore_user call assert_not_last_owner?
+# Why doesn't restore_user call assert_not_last_founder?
 
 # Think about what that guard actually protects against: a company being left with zero owners. Restoring a user adds someone back with (presumably) their prior permissions — it can only ever increase the number of active people attached to a company, never decrease it. There's no way restoring someone creates an ownerless company. So the guard would be dead code here — checked, but structurally incapable of ever failing.
 
@@ -73,7 +73,7 @@ def restore_user(*, user_id: str, company_id: str) -> User:
 
 # ❌ Assuming "restore" is always the exact logical inverse of "delete" and therefore needs the exact same guards run in reverse. Deletion and restoration often have asymmetric risk profiles — deletion can violate invariants (ownerless company) that restoration structurally cannot.
 
-# ❌ Copy-pasting delete_user to make restore_user, flipping the booleans, but forgetting to also remove the now-irrelevant assert_not_last_owner call — leaving dead, confusing code that makes a future reader wonder "wait, can restoring someone also fail an ownership check?"
+# ❌ Copy-pasting delete_user to make restore_user, flipping the booleans, but forgetting to also remove the now-irrelevant assert_not_last_founder call — leaving dead, confusing code that makes a future reader wonder "wait, can restoring someone also fail an ownership check?"
 
 # 7. Pattern Recognition — the family of three
 
@@ -86,7 +86,7 @@ def restore_user(*, user_id: str, company_id: str) -> User:
 #     if not user:
 #         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
 
-#     [any state-specific guard, e.g. assert_not_last_owner]
+#     [any state-specific guard, e.g. assert_not_last_founder]
 
 #     user.<field_a> = <new_value>
 #     user.<field_b> = <new_value>

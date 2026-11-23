@@ -1,5 +1,4 @@
 from __future__ import annotations
-from email import message
 from typing import Iterable
 from django.db import transaction
 from lrb.core.services.bulk_result import BulkActionResult

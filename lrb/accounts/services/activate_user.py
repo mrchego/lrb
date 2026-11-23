@@ -48,7 +48,7 @@ def activate_user(*, user_id: str, company_id: str) -> User:
 
 # Every piece of this you've now built from scratch across several files — from __future__ import annotations letting -> User work unquoted, TYPE_CHECKING correctly guarding the User import (checking your own test: User never appears as running code in this body, only as the return annotation — correct to guard it), transaction for the atomic decorator, get_user via direct submodule import, and the now-familiar ApplicationError/ErrorCode pair for the not-found case.
 
-# Notice what's absent here, compared to deactivate_user, demote_owner, lock_user, and delete_user: no from lrb.accounts.services.ownership_guard import assert_not_last_owner. Hold that thought — it's the most important thing to understand about this file, and we'll come back to it properly in Section 7.
+# Notice what's absent here, compared to deactivate_user, demote_cofounder, lock_user, and delete_user: no from lrb.accounts.services.founder_guard import assert_not_last_founder. Hold that thought — it's the most important thing to understand about this file, and we'll come back to it properly in Section 7.
 
 # 3. Signature — every symbol explained
 # python
@@ -90,7 +90,7 @@ def activate_user(*, user_id: str, company_id: str) -> User:
 
 # This is the most important thing to understand from this particular file, and it's a great test of whether the pattern-recognition you've built actually transfers, rather than being applied mechanically everywhere.
 
-# Ask the question assert_not_last_owner exists to answer: "could this action leave the company with zero active superusers, or does it touch the untouchable founder?" Both of those questions are only meaningful for actions that remove or reduce someone's standing — demoting an owner, deactivating someone, deleting someone, locking someone out. Every one of those actions could, in principle, be the one that tips a company from "has an owner" to "has none."
+# Ask the question assert_not_last_founder exists to answer: "could this action leave the company with zero active superusers, or does it touch the untouchable founder?" Both of those questions are only meaningful for actions that remove or reduce someone's standing — demoting an owner, deactivating someone, deleting someone, locking someone out. Every one of those actions could, in principle, be the one that tips a company from "has an owner" to "has none."
 
 # activate_user does the opposite. It reinstates someone. There is no version of this action where flipping is_active from False to True could ever reduce the number of active superusers at a company — if anything, reactivating a superuser can only ever increase or maintain that count, never decrease it. The entire premise the guard function protects against — "are we about to remove the last one" — simply cannot apply here, no matter who the target is, founder or not.
 
@@ -103,7 +103,7 @@ def activate_user(*, user_id: str, company_id: str) -> User:
 # Resist copy-pasting a safety check from a sibling "opposite" function just because the two files look structurally similar — structural similarity doesn't imply the same risks apply.
 # 9. General pattern recognition
 
-# This is the simplest form of the "single-flag action" pattern you've now seen several times — fetch, guard, flip, save narrowly, return — with the added lesson that not every member of a family of similar functions needs every safety mechanism the others have. create_user/update_user share exception-translation logic; deactivate_user/demote_owner/lock_user/delete_user share the ownership guard; activate_user correctly shares neither the email-uniqueness handling nor the ownership guard, because neither risk applies to what it does.
+# This is the simplest form of the "single-flag action" pattern you've now seen several times — fetch, guard, flip, save narrowly, return — with the added lesson that not every member of a family of similar functions needs every safety mechanism the others have. create_user/update_user share exception-translation logic; deactivate_user/demote_cofounder/lock_user/delete_user share the ownership guard; activate_user correctly shares neither the email-uniqueness handling nor the ownership guard, because neither risk applies to what it does.
 
 # 10. Real project usage
 # python
@@ -117,7 +117,7 @@ def activate_user(*, user_id: str, company_id: str) -> User:
 #     return UserPayload(success=True, user=user)
 # 11. Common beginner mistakes
 
-# ❌ Reflexively adding assert_not_last_owner to every function that touches is_active or similar flags, without checking whether the specific direction of the change (restoring versus removing) actually carries the risk the guard protects against.
+# ❌ Reflexively adding assert_not_last_founder to every function that touches is_active or similar flags, without checking whether the specific direction of the change (restoring versus removing) actually carries the risk the guard protects against.
 
 # ❌ Forgetting the not-found guard, on the assumption "this one's simple, surely nothing can go wrong" — the ID could still be stale or invalid regardless of how simple the eventual write is.
 

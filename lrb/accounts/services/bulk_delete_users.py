@@ -4,7 +4,7 @@ from django.db import transaction
 from lrb.core.exceptions import ApplicationError
 from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 from lrb.core.services.bulk_result import BulkActionResult
-from lrb.accounts.services.ownership_guard import assert_not_last_owner
+from lrb.accounts.services.founder_guard import assert_not_last_founder
 
 def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id:str) -> BulkActionResult:
     result = BulkActionResult()
@@ -22,7 +22,7 @@ def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id
             result.add_failure(item_id=uid, reason="Already deleted")
             continue
         try:
-            assert_not_last_owner(user=user, company_id=company_id, action="deleted")
+            assert_not_last_founder(user=user, company_id=company_id, action="deleted")
         except ApplicationError as e:
             result.add_failure(item_id=uid, reason=str(e.message))
             continue
@@ -63,7 +63,7 @@ def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id
 # from lrb.core.exceptions import ApplicationError
 # from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 # from lrb.core.services.bulk_result import BulkActionResult
-# from lrb.accounts.services.ownership_guard import assert_not_last_owner
+# from lrb.accounts.services.founder_guard import assert_not_last_founder
 
 # Same import set as bulk_lock_users, minus the missing-user ApplicationError distinction we'll get to — nothing new mechanically.
 
@@ -103,7 +103,7 @@ def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id
 # Bug 1 — the missing continue
 # python
 #     try:
-#         assert_not_last_owner(user=user, company_id=company_id, action="deleted")
+#         assert_not_last_founder(user=user, company_id=company_id, action="deleted")
 #     except ApplicationError as e:
 #         result.add_failure(user_id=uid, reason=str(e))
 
@@ -120,18 +120,18 @@ def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id
 
 # python
 # try:
-#     assert_not_last_owner(user=user, company_id=company_id, action="locked")
+#     assert_not_last_founder(user=user, company_id=company_id, action="locked")
 # except ApplicationError as e:
 #     result.add_failure(user_id=uid, reason=str(e.message))
 #     continue          # ← present in bulk_lock_users
 
-# This file's except ApplicationError block has no continue. Trace what actually happens when assert_not_last_owner raises — say, this user is the last active owner of their company: the exception is caught, add_failure correctly records the rejection... and then, because there's no continue, execution falls straight through to the very next line and enters the second try block anyway — the one that actually performs the delete. The guard's rejection gets recorded, but the action it was supposed to block happens regardless. This user gets both a failure entry ("last owner, can't delete") and actually deleted, and — since the delete itself succeeds — also a success entry. The exact lockout scenario the entire guard chain exists to prevent happens anyway, just with a confusing paper trail claiming it was blocked.
+# This file's except ApplicationError block has no continue. Trace what actually happens when assert_not_last_founder raises — say, this user is the last active owner of their company: the exception is caught, add_failure correctly records the rejection... and then, because there's no continue, execution falls straight through to the very next line and enters the second try block anyway — the one that actually performs the delete. The guard's rejection gets recorded, but the action it was supposed to block happens regardless. This user gets both a failure entry ("last owner, can't delete") and actually deleted, and — since the delete itself succeeds — also a success entry. The exact lockout scenario the entire guard chain exists to prevent happens anyway, just with a confusing paper trail claiming it was blocked.
 
 # Fix:
 
 # python
 # try:
-#     assert_not_last_owner(user=user, company_id=company_id, action="deleted")
+#     assert_not_last_founder(user=user, company_id=company_id, action="deleted")
 # except ApplicationError as e:
 #     result.add_failure(user_id=uid, reason=str(e))
 #     continue
@@ -177,7 +177,7 @@ def bulk_delete_users(*, user_ids:Iterable[str], company_id:str, current_user_id
 # 6. Beginner questions, answered proactively
 
 # Why does the missing continue matter more here than it might seem?
-# Because this isn't just "a failure gets recorded twice" — it's the actual protected write happening despite being rejected. The try/except around assert_not_last_owner was never just about reporting; its entire purpose is to stop execution before reaching the delete. Recording the rejection without also stopping defeats the guard completely — the reporting and the protection are two separate jobs, and this bug keeps one while silently dropping the other.
+# Because this isn't just "a failure gets recorded twice" — it's the actual protected write happening despite being rejected. The try/except around assert_not_last_founder was never just about reporting; its entire purpose is to stop execution before reaching the delete. Recording the rejection without also stopping defeats the guard completely — the reporting and the protection are two separate jobs, and this bug keeps one while silently dropping the other.
 
 # Why does str(e) work for any exception, when .message doesn't?
 # str(e) calls Python's universal string-conversion machinery, which every exception (indeed, every object in Python) supports by default, returning something reasonable — typically whatever message the exception was constructed with, however it stores that internally. .message is a specific attribute name that only exists on classes that explicitly define it. str(e) works no matter how the exception stores its message internally; .message only works if you already know, in advance, that this exact exception class happens to expose it that way.

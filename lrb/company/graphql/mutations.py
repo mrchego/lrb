@@ -17,7 +17,7 @@ from lrb.company.services.update_company_settings import (
 from lrb.company.workflows.register_company import (
     register_company as register_company_workflow,
 )
-from lrb.authorization.decorators import require_owner
+from lrb.authorization.decorators import require_founder
 from lrb.core.exceptions import ApplicationError
 from lrb.core.graphql.errors import format_application_error
 
@@ -25,7 +25,7 @@ from lrb.core.graphql.errors import format_application_error
 @strawberry.type
 class CompanyMutation:
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def update_company(
         self, info: strawberry.Info, input: UpdateCompanyInput
     ) -> CompanyMutationPayload:
@@ -50,7 +50,7 @@ class CompanyMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def update_company_settings(
         self, info: strawberry.Info, input: UpdateCompanySettingsInput
     ) -> CompanySettingsMutationPayload:

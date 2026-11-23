@@ -27,7 +27,8 @@ def list_users(
             Prefetch(
                 "user_roles",
                 queryset=UserRole.objects.select_related("role").order_by("role__name"),
-            )
+            ),
+            "permission_overrides",  
         )
     )
     if is_active is not None:
@@ -46,7 +47,7 @@ def list_users(
         "created_at",
         date_range=created,
     )
-    
+
     return paginate_queryset(qs.order_by("-created_at"), limit=limit, offset=offset)
 
 
@@ -117,7 +118,7 @@ def list_users(
 # if can_login is not None:
 #     qs = qs.filter(can_login=can_login)
 
-# Three conditional narrowings, each following the exact "guard-check query" pattern you already know from count_active_superusers. Notice the deliberate difference between the first (if company_id:) and the next two (if is_active is not None:). This isn't sloppiness — it's correct, careful code: is_active and can_login are booleans, where False is a completely legitimate, meaningful filter value (someone might genuinely want "show me only inactive users"). If this had used if is_active: instead, a caller passing is_active=False would be silently ignored, since False is falsy — the filter would never apply. company_id, by contrast, is a string where an empty string never means anything meaningful, so the simpler falsy check is safe there.
+# Three conditional narrowings, each following the exact "guard-check query" pattern you already know from count_active_founders. Notice the deliberate difference between the first (if company_id:) and the next two (if is_active is not None:). This isn't sloppiness — it's correct, careful code: is_active and can_login are booleans, where False is a completely legitimate, meaningful filter value (someone might genuinely want "show me only inactive users"). If this had used if is_active: instead, a caller passing is_active=False would be silently ignored, since False is falsy — the filter would never apply. company_id, by contrast, is a string where an empty string never means anything meaningful, so the simpler falsy check is safe there.
 
 # python
 # if search:

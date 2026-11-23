@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from lrb.accounts.selectors.get_user import get_user
-from lrb.accounts.services.ownership_guard import assert_not_last_owner
+from lrb.accounts.services.founder_guard import assert_not_last_founder
 from lrb.core.exceptions import ApplicationError, ErrorCode
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ def lock_user(*, user_id: str, company_id: str, duration_minutes: int = 15) -> U
     user = get_user(user_id=user_id, company_id=company_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
-    assert_not_last_owner(user=user, company_id=company_id, action="locked")
+    assert_not_last_founder(user=user, company_id=company_id, action="locked")
     user.locked_until = timezone.now() + timezone.timedelta(minutes=duration_minutes)
     user.save(update_fields=["locked_until"])
     return user
@@ -102,7 +102,7 @@ def lock_user(*, user_id: str, company_id: str, duration_minutes: int = 15) -> U
 # from django.db import transaction
 # from django.utils import timezone
 # from lrb.accounts.selectors.get_user import get_user
-# from lrb.accounts.services.ownership_guard import assert_not_last_owner
+# from lrb.accounts.services.founder_guard import assert_not_last_founder
 # from lrb.core.exceptions import ApplicationError, ErrorCode
 # from typing import TYPE_CHECKING
 
@@ -122,7 +122,7 @@ def lock_user(*, user_id: str, company_id: str, duration_minutes: int = 15) -> U
 # if not user:
 #     raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
 # if user.company_id:
-#     assert_not_last_owner(
+#     assert_not_last_founder(
 #         user=user, company_id=str(user.company_id), action="locked"
 #     )
 
@@ -153,4 +153,4 @@ def lock_user(*, user_id: str, company_id: str, duration_minutes: int = 15) -> U
 
 # Whenever you use if TYPE_CHECKING: to import something, ask immediately: "Is every annotation using this name either quoted, or is from __future__ import annotations at the top of this file?" If the answer is no, you have a guaranteed NameError waiting the moment this module gets imported — not a maybe, a certainty, because Python will hit that line no matter what code path executes.
 
-# This is a genuinely good bug to have found — it would crash on Django startup, so you'd catch it fast in testing, but it's exactly the kind of thing worth fixing before you have six more files copying this same incomplete pattern. Want me to check the earlier files (delete_user, restore_user, promote_to_owner) for whether they're using plain from lrb.accounts.models import User — meaning they don't have this problem at all — or do you want to move on to the ownership_guard / permission-checking code next?
+# This is a genuinely good bug to have found — it would crash on Django startup, so you'd catch it fast in testing, but it's exactly the kind of thing worth fixing before you have six more files copying this same incomplete pattern. Want me to check the earlier files (delete_user, restore_user, promote_to_cofounder) for whether they're using plain from lrb.accounts.models import User — meaning they don't have this problem at all — or do you want to move on to the founder_guard / permission-checking code next?

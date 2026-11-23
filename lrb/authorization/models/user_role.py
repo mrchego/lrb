@@ -103,7 +103,7 @@ class UserPermissionOverride(BaseModel):
 # is_granted = models.BooleanField(default=True) — a new field type: BooleanField stores True/False. default=True means if a row is created without explicitly setting is_granted, it defaults to True.
 
 # Why does this model exist, given Permission and UserRole already exist?
-# This is the key design idea, and it directly matches your project note: "require_owner() for superuser-only actions; require_permission(codename) for delegable staff permissions." Normally, a user's permissions come from their roles (via UserRole → Role → its permissions). But real systems often need individual exceptions — "this one staff member should NOT have a permission their role normally grants" or "this one staff member SHOULD have an extra permission their role doesn't normally include," without creating a whole new custom role just for one person.
+# This is the key design idea, and it directly matches your project note: "require_founder() for superuser-only actions; require_permission(codename) for delegable staff permissions." Normally, a user's permissions come from their roles (via UserRole → Role → its permissions). But real systems often need individual exceptions — "this one staff member should NOT have a permission their role normally grants" or "this one staff member SHOULD have an extra permission their role doesn't normally include," without creating a whole new custom role just for one person.
 
 # is_granted is what makes this an override rather than just an addition:
 

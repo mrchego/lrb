@@ -19,7 +19,7 @@ class UserAdmin(BaseModelAdmin, auth_admin.UserAdmin):
     add_form = UserAdminCreationForm
 
     list_display = ['email', 'first_name', 'last_name', 'company', 'can_login', 'is_active', 'created_at']
-    list_filter = ['can_login', 'is_active', 'is_staff', 'is_superuser', 'company', 'created_at']
+    list_filter = ['can_login', 'is_active', 'is_staff', 'is_superuser', 'is_founder', 'is_cofounder', 'company', 'created_at']
     search_fields = ['email', 'first_name', 'last_name', 'phone']
     ordering = ['-created_at']
     date_hierarchy = 'created_at'
@@ -28,7 +28,7 @@ class UserAdmin(BaseModelAdmin, auth_admin.UserAdmin):
     fieldsets = (
         (None, {"fields": ("id", "email", "password")}),
         (_("Personal info"), {"fields": ("first_name", "last_name", "phone", "avatar")}),
-        (_("Organization"), {"fields": ("company",)}),
+        (_("Organization"), {"fields": ("company", "is_founder", "is_cofounder")}),
         (_("Security & Login"), {"fields": ("can_login", "password_reset_required", "locked_until", "failed_login_attempts")}),
         (
             _("Permissions"),

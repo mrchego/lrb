@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db import transaction
 from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 from lrb.core.services.bulk_result import BulkActionResult
-from lrb.accounts.services.ownership_guard import assert_not_last_owner
+from lrb.accounts.services.founder_guard import assert_not_last_founder
 from lrb.core.exceptions import ApplicationError
 
 
@@ -29,7 +29,7 @@ def bulk_lock_users(
             result.add_failure(item_id=uid, reason="Cannot lock your own account")
             continue
         try:
-            assert_not_last_owner(user=user, company_id=company_id, action="locked")
+            assert_not_last_founder(user=user, company_id=company_id, action="locked")
         except ApplicationError as e:
             result.add_failure(item_id=uid, reason=str(e.message))
             continue
@@ -59,7 +59,7 @@ def bulk_lock_users(
 # A bulk "lock these accounts" admin action, where the acting staff member's own ID is known and must be excluded from the batch's effect on themselves.
 
 # What breaks without it?
-# Without the self-lock check: a staff member could accidentally lock themselves out mid-incident-response. Without the ownership guard: the same lockout risk you've now protected against in demote_owner, deactivate_user, delete_user.
+# Without the self-lock check: a staff member could accidentally lock themselves out mid-incident-response. Without the ownership guard: the same lockout risk you've now protected against in demote_cofounder, deactivate_user, delete_user.
 
 # 2. Imports — explained like you've never programmed
 # python
@@ -69,10 +69,10 @@ def bulk_lock_users(
 # from django.db import transaction
 # from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 # from lrb.core.services.bulk_result import BulkActionResult
-# from lrb.accounts.services.ownership_guard import assert_not_last_owner
+# from lrb.accounts.services.founder_guard import assert_not_last_founder
 # from lrb.core.exceptions import ApplicationError
 
-# Everything here you've built or seen before — timezone (the same tool lock_user used, for computing an expiry timestamp), assert_not_last_owner and ApplicationError newly combined into a bulk context for the first time. Nothing mechanically new.
+# Everything here you've built or seen before — timezone (the same tool lock_user used, for computing an expiry timestamp), assert_not_last_founder and ApplicationError newly combined into a bulk context for the first time. Nothing mechanically new.
 
 # 3. Signature — every symbol explained
 # python
@@ -151,12 +151,12 @@ def bulk_lock_users(
 
 # python
 #     try:
-#         assert_not_last_owner(user=user, company_id=company_id, action="locked")
+#         assert_not_last_founder(user=user, company_id=company_id, action="locked")
 #     except ApplicationError as e:
 #         result.add_failure(user_id=uid, reason=str(e.message))
 #         continue
 
-# This is genuinely new — the first bulk function to call assert_not_last_owner at all, and it has to handle it differently than a single-user service does, because assert_not_last_owner raises on violation rather than returning a value — and inside a bulk loop, you don't want one user's ownership violation to crash the whole batch (matching the pattern you established for save failures). Wrapping the call in its own try/except ApplicationError converts a raised exception into a recorded failure, then continues to the next user — consistent with every other per-user failure path in this function.
+# This is genuinely new — the first bulk function to call assert_not_last_founder at all, and it has to handle it differently than a single-user service does, because assert_not_last_founder raises on violation rather than returning a value — and inside a bulk loop, you don't want one user's ownership violation to crash the whole batch (matching the pattern you established for save failures). Wrapping the call in its own try/except ApplicationError converts a raised exception into a recorded failure, then continues to the next user — consistent with every other per-user failure path in this function.
 
 # str(e.message) — accessing .message on the caught ApplicationError. Worth distinguishing this from the .message trap you hit with Django's ValidationError several files back: that trap was specifically about ValidationError's dict-based construction only sometimes populating .message. ApplicationError is your own custom exception class, and based on every place you've constructed one (ApplicationError("User Not Found", code=ErrorCode.USER_NOT_FOUND)), it's always built from a single message string — so .message reliably existing here is a reasonable assumption, genuinely different from the Django case, provided ApplicationError.__init__ actually stores its first argument as self.message (worth a quick confirmation against that class's own definition if you haven't already, but not the same fragile pattern as before).
 
@@ -182,7 +182,7 @@ def bulk_lock_users(
 # 6. Beginner questions, answered proactively
 
 # Why does the self-lock check come before the ownership guard, rather than after?
-# Ordering by cheapest-check-first, same principle as assert_not_last_owner's own internal ordering (founder check before the database query) — comparing two already-in-memory strings is essentially free, while assert_not_last_owner potentially runs a database query (count_active_superusers). Checking the cheap thing first means you never pay for the expensive check on a user you were going to reject anyway.
+# Ordering by cheapest-check-first, same principle as assert_not_last_founder's own internal ordering (founder check before the database query) — comparing two already-in-memory strings is essentially free, while assert_not_last_founder potentially runs a database query (count_active_founders). Checking the cheap thing first means you never pay for the expensive check on a user you were going to reject anyway.
 
 # Why continue after the ownership-guard failure but not restructure it as an if/else?
 # Same reasoning as bulk_restore_users's "already active" branch — continue cleanly expresses "nothing more to do for this one, move on," without needing to indent the entire rest of the loop body inside an else block.
@@ -197,7 +197,7 @@ def bulk_lock_users(
 # 8. DIY Recipe — build one like this yourself
 # When building found_ids for a missing-ID comparison, always extract the specific identifying field explicitly (u.id), never rely on the object's default string conversion — str(some_object) almost never means what you want unless you've specifically confirmed what __str__ returns for that model.
 # When a bulk operation needs to protect against "acting on yourself," accept the actor's ID as an explicit parameter, and check it early, before any expensive per-item work.
-# When composing an existing raise-based guard function (assert_not_last_owner) into a bulk loop, wrap the call in its own try/except, converting the raise into a recorded failure and continue-ing, exactly matching how you already handle save failures.
+# When composing an existing raise-based guard function (assert_not_last_founder) into a bulk loop, wrap the call in its own try/except, converting the raise into a recorded failure and continue-ing, exactly matching how you already handle save failures.
 # After writing a missing-ID comparison, sanity-check it by hand once: pick one user you know will be found, and verify their ID would actually appear in both sets being compared — this is exactly the trace that reveals the str(u) bug.
 # 9. General pattern recognition
 

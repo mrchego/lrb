@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from django.db import transaction
 
 from lrb.accounts.selectors.get_user import get_user
-from lrb.accounts.services.ownership_guard import assert_not_last_owner
+from lrb.accounts.services.founder_guard import assert_not_last_founder
 from lrb.core.exceptions import ApplicationError, ErrorCode
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ def delete_user(*, user_id: str, company_id: str) -> User:
     user = get_user(user_id=user_id, company_id=company_id)
     if user is None:
         raise ApplicationError("User not found.", code=ErrorCode.USER_NOT_FOUND)
-    assert_not_last_owner(user=user, company_id=company_id, action="deleted")
+    assert_not_last_founder(user=user, company_id=company_id, action="deleted")
     user.is_active = False
     user.can_login = False
     user.save(update_fields=["is_active", "can_login"])
@@ -59,8 +59,8 @@ def delete_user(*, user_id: str, company_id: str) -> User:
 # from lrb.accounts.selectors import get_user
 # A "selector" in this codebase's convention is a function whose only job is reading data (as opposed to a "service," whose job is changing data). get_user presumably does User.objects.filter(id=...).first() or similar — but you don't need to know that to use it. That's the whole point of importing it: you get to treat it as a trusted tool.
 # python
-# from lrb.accounts.services.ownership_guard import assert_not_last_owner
-# ownership_guard — a module whose entire purpose is protecting against a specific bad state: a company with no owners. assert_not_last_owner is a function that raises an error if deleting this user would leave the company ownerless.
+# from lrb.accounts.services.founder_guard import assert_not_last_founder
+# founder_guard — a module whose entire purpose is protecting against a specific bad state: a company with no owners. assert_not_last_founder is a function that raises an error if deleting this user would leave the company ownerless.
 # python
 # from lrb.core.exceptions import ApplicationError, ErrorCode
 # Custom exception types for this project. ApplicationError is presumably a subclass of Python's built-in Exception, and ErrorCode is likely an enum — a fixed list of named error codes (like USER_NOT_FOUND) instead of typo-prone raw strings like "user_not_found".
@@ -129,7 +129,7 @@ def delete_user(*, user_id: str, company_id: str) -> User:
 # Line 4–7
 # python
 # if user.comapny_id:
-#     assert_not_last_owner(
+#     assert_not_last_founder(
 #         user=user, company_id=str(user.company_id), action="deleted"
 #     )
 
@@ -139,10 +139,10 @@ def delete_user(*, user_id: str, company_id: str) -> User:
 
 # Assuming it were spelled consistently: "If this user belongs to a company..."
 
-# Inside the block: call assert_not_last_owner, passing three named arguments: user (the whole user object), company_id (converted to a string with str() — probably because the underlying field is a UUID object, not already a string, and the function expects text), and action="deleted" (probably used to build a human-readable error message like "Cannot be deleted: last owner of company X").
+# Inside the block: call assert_not_last_founder, passing three named arguments: user (the whole user object), company_id (converted to a string with str() — probably because the underlying field is a UUID object, not already a string, and the function expects text), and action="deleted" (probably used to build a human-readable error message like "Cannot be deleted: last owner of company X").
 
 # Why call str() on company_id but not on user_id earlier?
-# Because user_id came in as a str already (per the type hint), while user.company_id is likely a database foreign key, which Django often represents as a UUID object internally, not plain text. Converting keeps assert_not_last_owner's contract simple: "I always receive a string."
+# Because user_id came in as a str already (per the type hint), while user.company_id is likely a database foreign key, which Django often represents as a UUID object internally, not plain text. Converting keeps assert_not_last_founder's contract simple: "I always receive a string."
 
 # Whole block: "If this user is attached to a company, make sure deleting them wouldn't leave that company without any owner — and if it would, this call will raise its own error and stop everything here."
 
@@ -179,7 +179,7 @@ def delete_user(*, user_id: str, company_id: str) -> User:
 # Why two separate flags, is_active and can_login, instead of one?
 # This hints the codebase distinguishes "this account is archived" from "this account cannot authenticate" — they might not always change together elsewhere in the codebase (e.g., a suspended-but-still-existing user).
 
-# Why check assert_not_last_owner before mutating anything, and why does the whole function sit inside @transaction.atomic?
+# Why check assert_not_last_founder before mutating anything, and why does the whole function sit inside @transaction.atomic?
 # Even though the ownership check happens first here, the atomic decorator is cheap insurance: if this function grows (e.g., adds "also deactivate their API keys" as a third .save() call) and one of those later steps fails, atomic guarantees you don't end up with a user who's is_active=False but can_login=True — a broken half-state.
 
 # 6. Common Beginner Mistakes (including a real one in this code!)
@@ -206,4 +206,4 @@ def delete_user(*, user_id: str, company_id: str) -> User:
 # A Django admin custom action
 # A management command for bulk cleanup
 
-# Want me to go the same depth on assert_not_last_owner next (since that's the real RBAC-flavored piece — the "is this the last owner" guard), or do you want to fix the comapny_id typo first and move to another file?
+# Want me to go the same depth on assert_not_last_founder next (since that's the real RBAC-flavored piece — the "is this the last owner" guard), or do you want to fix the comapny_id typo first and move to another file?

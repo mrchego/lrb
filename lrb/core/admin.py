@@ -255,7 +255,7 @@ class BaseModelAdmin(admin.ModelAdmin):
 
 # 13. Real project usage
 
-# Given your project's conventions (soft-delete-aware models, require_owner()/require_permission()), this BaseModelAdmin is almost certainly meant to be the parent class for admin registrations across rbac.accounts, rbac.staff, rbac.products, rbac.orders, etc. — anywhere: class OrderAdmin(BaseModelAdmin): ..., then admin.site.register(Order, OrderAdmin).
+# Given your project's conventions (soft-delete-aware models, require_founder()/require_permission()), this BaseModelAdmin is almost certainly meant to be the parent class for admin registrations across rbac.accounts, rbac.staff, rbac.products, rbac.orders, etc. — anywhere: class OrderAdmin(BaseModelAdmin): ..., then admin.site.register(Order, OrderAdmin).
 
 # 14. Common beginner mistakes
 # ❌ Forgetting to call super() in an overridden method — this silently throws away Django's default behavior instead of building on it.

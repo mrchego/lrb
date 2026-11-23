@@ -2,7 +2,7 @@ import strawberry
 
 from lrb.accounts.selectors.get_current_user import get_current_user
 from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
-from lrb.authorization.decorators import require_owner
+from lrb.authorization.decorators import require_founder
 from lrb.authorization.models.role import Role
 from lrb.core.exceptions import ApplicationError, ErrorCode
 from lrb.core.graphql.errors import format_application_error
@@ -16,6 +16,7 @@ from lrb.staff.graphql.inputs import (
     ResendInvitationInput,
     RevokeInvitationInput,
     SetStaffLoginAccessInput,
+    UpdateStaffAccessInput,
 )
 from lrb.staff.graphql.payloads import (
     AcceptInvitationPayload,
@@ -37,6 +38,9 @@ from lrb.staff.services.bulk_revoke_invitations import (
 from lrb.staff.services.demote_staff_from_login import (
     demote_staff_from_login as demote_staff_from_login_action,
 )
+from lrb.staff.services.update_staff_access import (
+    update_staff_access as update_staff_access_action,
+)
 from lrb.staff.workflows.accept_invitation import (
     accept_invitation as accept_invitation_action,
 )
@@ -49,7 +53,7 @@ from lrb.staff.workflows.promote_staff_to_login import (
 @strawberry.type
 class StaffMutation:
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def invite_staff(
         self, info: strawberry.Info, input: InviteStaffInput
     ) -> InvitationMutationPayload:
@@ -74,6 +78,7 @@ class StaffMutation:
                 request=info.context.request,
                 can_login=input.can_login,
                 role=role,
+                permission_codenames=input.permission_codenames,
             )
             return InvitationMutationPayload(success=True, invitation=invitation)
         except ApplicationError as e:
@@ -82,7 +87,26 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
+    def update_staff_access(
+        self, info: strawberry.Info, input: UpdateStaffAccessInput
+    ) -> SimpleMutationPayload:
+        current = get_current_user_or_raise(info)
+        try:
+            update_staff_access_action(
+                user_id=input.user_id,
+                company_id=str(current.company_id),
+                role_id=input.role_id,
+                permission_codenames=input.permission_codenames,
+            )
+            return SimpleMutationPayload(success=True)
+        except ApplicationError as e:
+            return SimpleMutationPayload(
+                success=False, errors=[format_application_error(e)]
+            )
+
+    @strawberry.mutation
+    @require_founder()
     def revoke_invitation(
         self, info: strawberry.Info, input: RevokeInvitationInput
     ) -> SimpleMutationPayload:
@@ -96,7 +120,7 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def resend_invitation(
         self, info: strawberry.Info, input: ResendInvitationInput
     ) -> InvitationMutationPayload:
@@ -112,7 +136,7 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def set_staff_login_access(
         self, info: strawberry.Info, input: SetStaffLoginAccessInput
     ) -> SimpleMutationPayload:
@@ -128,7 +152,7 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_revoke_invitations(
         self, info: strawberry.Info, input: BulkRevokeInvitationsInput
     ) -> BulkInvitationActionPayload:
@@ -139,7 +163,7 @@ class StaffMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def demote_staff_from_login(
         self, info: strawberry.Info, input: DemoteStaffFromLoginInput
     ) -> SimpleMutationPayload:
@@ -169,7 +193,7 @@ class StaffMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def promote_staff_to_login(
         self, info: strawberry.Info, input: PromoteStaffToLoginInput
     ) -> InvitationMutationPayload:

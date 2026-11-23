@@ -3,7 +3,7 @@ from typing import Iterable
 from django.db import transaction
 from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 from lrb.core.services.bulk_result import BulkActionResult
-from lrb.accounts.services.ownership_guard import assert_not_last_owner
+from lrb.accounts.services.founder_guard import assert_not_last_founder
 from lrb.core.exceptions import ApplicationError
 def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, current_user_id: str) -> BulkActionResult:
     result = BulkActionResult()
@@ -18,7 +18,7 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
             result.add_failure(item_id=uid, reason="Cannot force password reset on your on account")
             continue
         try:
-            assert_not_last_owner(user=user, company_id=company_id, action="force password rest")
+            assert_not_last_founder(user=user, company_id=company_id, action="force password rest")
         except ApplicationError as e:
             result.add_failure(item_id=uid, reason=str(e.message))
             continue
@@ -59,7 +59,7 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
 # from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 # from lrb.core.services.bulk_result import BulkActionResult
 
-# Nothing new — the exact minimal import set for a bulk function that doesn't need the ownership guard (no assert_not_last_owner, no ApplicationError — we'll confirm in Section 7 why that's correct, not an oversight).
+# Nothing new — the exact minimal import set for a bulk function that doesn't need the ownership guard (no assert_not_last_founder, no ApplicationError — we'll confirm in Section 7 why that's correct, not an oversight).
 
 # 3. Signature — every symbol explained
 # python
@@ -111,13 +111,13 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
 
 # 7. Design discussion — does this need the ownership guard?
 
-# This is the deliberate check worth running, given the last file's actual bug lived in a different spot but the last file's concept (composing assert_not_last_owner into a bulk loop) is fresh. Apply the same test from activate_user's design discussion: what specific harm does assert_not_last_owner protect against, and could this action cause that harm?
+# This is the deliberate check worth running, given the last file's actual bug lived in a different spot but the last file's concept (composing assert_not_last_founder into a bulk loop) is fresh. Apply the same test from activate_user's design discussion: what specific harm does assert_not_last_founder protect against, and could this action cause that harm?
 
-# assert_not_last_owner protects against a company ending up with zero active superusers, and against ever modifying the founder's account. Forcing a password reset does neither of those things — it doesn't touch is_superuser, doesn't touch is_active, doesn't remove anyone's standing or capability to act as an owner in any way. A superuser who's forced to reset their password is still a superuser, still active, still fully capable of managing the company the moment they set a new password. The specific risk the guard exists to prevent simply doesn't apply here, exactly as it didn't apply to activate_user.
+# assert_not_last_founder protects against a company ending up with zero active superusers, and against ever modifying the founder's account. Forcing a password reset does neither of those things — it doesn't touch is_superuser, doesn't touch is_active, doesn't remove anyone's standing or capability to act as an owner in any way. A superuser who's forced to reset their password is still a superuser, still active, still fully capable of managing the company the moment they set a new password. The specific risk the guard exists to prevent simply doesn't apply here, exactly as it didn't apply to activate_user.
 
 # Correctly omitted, not a gap. This is a good instance of the discipline you're building: not reflexively adding every safety check to every function that touches a User, but reasoning about which specific risks each specific action actually carries.
 
-# One thing genuinely worth asking, though, as a real design question rather than a bug: should the founder be exempt from having their password reset forced on them by another staff member, on the theory that the founder shouldn't be actionable by ordinary staff at all, even in ways that don't touch ownership standing? That's a legitimate policy question your team would need to answer — but it's a different kind of protection than what assert_not_last_owner provides (which is specifically about ownership continuity, not about founder-untouchability in general), so it wouldn't be solved by reusing that same guard function even if the answer is "yes."
+# One thing genuinely worth asking, though, as a real design question rather than a bug: should the founder be exempt from having their password reset forced on them by another staff member, on the theory that the founder shouldn't be actionable by ordinary staff at all, even in ways that don't touch ownership standing? That's a legitimate policy question your team would need to answer — but it's a different kind of protection than what assert_not_last_founder provides (which is specifically about ownership continuity, not about founder-untouchability in general), so it wouldn't be solved by reusing that same guard function even if the answer is "yes."
 
 # 8. DIY Recipe — build one like this yourself
 # Start from the established bulk template: accumulator, normalized IDs (own variable name), one batch query, found_ids built from .id specifically.
@@ -140,7 +140,7 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
 
 # 11. Common beginner mistakes
 
-# ❌ Adding assert_not_last_owner here "to be consistent" with bulk_lock_users, without checking whether this specific action actually risks what that guard protects against.
+# ❌ Adding assert_not_last_founder here "to be consistent" with bulk_lock_users, without checking whether this specific action actually risks what that guard protects against.
 
 # ❌ Forgetting the .id on found_ids — the exact bug from the previous file — worth treating as a standing checklist item every time this template gets reused.
 
@@ -161,7 +161,7 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
 # from django.db import transaction
 # from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 # from lrb.core.services.bulk_result import BulkActionResult
-# from lrb.accounts.services.ownership_guard import assert_not_last_owner
+# from lrb.accounts.services.founder_guard import assert_not_last_founder
 # from lrb.core.exceptions import ApplicationError
 
 
@@ -186,7 +186,7 @@ def bulk_force_password_reset(*, user_ids: Iterable[str], company_id: str, curre
 #             result.add_failure(user_id=uid, reason="Cannot lock your own account")
 #             continue
 #         try:
-#             assert_not_last_owner(user=user, company_id=company_id, action="locked")
+#             assert_not_last_founder(user=user, company_id=company_id, action="locked")
 #         except ApplicationError as e:
 #             result.add_failure(user_id=uid, reason=str(e.message))
 #             continue

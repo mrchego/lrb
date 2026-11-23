@@ -57,7 +57,7 @@ class DashboardData:
     @strawberry.field
     def users(self, info: strawberry.Info) -> Optional[UserStats]:
         user = get_current_user(info)
-        if not user or not user.is_superuser or not user.company_id:
+        if not user or not user.has_founder_access or not user.company_id:
             return None
         stats = get_cached_user_stats(company_id=str(user.company_id))
         return UserStats(

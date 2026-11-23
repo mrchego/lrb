@@ -1,7 +1,7 @@
 import strawberry
 
 from lrb.accounts.selectors.get_current_user_or_raise import get_current_user_or_raise
-from lrb.authorization.decorators import require_owner
+from lrb.authorization.decorators import require_founder
 from lrb.authorization.graphql.inputs import (
     AssignRoleInput,
     BulkAssignRoleInput,
@@ -44,7 +44,7 @@ from lrb.core.graphql.payloads import BulkActionPayload, to_bulk_payload
 @strawberry.type
 class RoleMutation:
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def create_role(
         self, info: strawberry.Info, input: CreateRoleInput
     ) -> RoleMutationPayload:
@@ -63,7 +63,7 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def update_role(
         self, info: strawberry.Info, input: UpdateRoleInput
     ) -> RoleMutationPayload:
@@ -83,7 +83,7 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def delete_role(
         self, info: strawberry.Info, input: DeleteRoleInput
     ) -> AssignmentMutationPayload:
@@ -99,7 +99,7 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def clone_role(
         self, info: strawberry.Info, input: CloneRoleInput
     ) -> RoleMutationPayload:
@@ -117,7 +117,7 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def assign_role(
         self, info: strawberry.Info, input: AssignRoleInput
     ) -> AssignmentMutationPayload:
@@ -135,7 +135,7 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def remove_role(
         self, info: strawberry.Info, input: RemoveRoleInput
     ) -> AssignmentMutationPayload:
@@ -153,7 +153,7 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_assign_role(
         self, info: strawberry.Info, input: BulkAssignRoleInput
     ) -> BulkActionPayload:
@@ -166,7 +166,7 @@ class RoleMutation:
         return to_bulk_payload(result=result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def bulk_remove_role(
         self, info: strawberry.Info, input: BulkRemoveRoleInput
     ) -> BulkActionPayload:
@@ -179,15 +179,17 @@ class RoleMutation:
         return to_bulk_payload(result)
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def set_permission_override(
         self, info: strawberry.Info, input: SetPermissionOverrideInput
     ) -> AssignmentMutationPayload:
+        current = get_current_user_or_raise(info)
         try:
             set_permission_override_action(
                 user_id=input.user_id,
                 permission_codename=input.permission_codename,
                 is_granted=input.is_granted,
+                company_id=str(current.company_id),
             )
             return AssignmentMutationPayload(success=True)
         except ApplicationError as e:
@@ -196,13 +198,16 @@ class RoleMutation:
             )
 
     @strawberry.mutation
-    @require_owner()
+    @require_founder()
     def clear_permission_override(
         self, info: strawberry.Info, input: ClearPermissionOverrideInput
     ) -> AssignmentMutationPayload:
+        current = get_current_user_or_raise(info)
         try:
             clear_permission_override_action(
-                user_id=input.user_id, permission_codename=input.permission_codename
+                user_id=input.user_id,
+                permission_codename=input.permission_codename,
+                company_id=str(current.company_id),
             )
             return AssignmentMutationPayload(success=True)
         except ApplicationError as e:
@@ -213,7 +218,7 @@ class RoleMutation:
 
 # Teaching: RoleMutation
 
-# This is the final piece of the whole picture — the write-side counterpart to RoleQuery, tying together nearly every service, input, and payload type you've read across this entire conversation. Structurally it's almost identical to UserMutation (your very first file), so I won't re-teach @strawberry.mutation, @require_owner(), try/except ApplicationError, or the payload pattern. Instead: one new syntax detail (import ... as ...), and — this file has two separate, real bugs, one of which is a direct, satisfying payoff of something you flagged yourself two functions ago.
+# This is the final piece of the whole picture — the write-side counterpart to RoleQuery, tying together nearly every service, input, and payload type you've read across this entire conversation. Structurally it's almost identical to UserMutation (your very first file), so I won't re-teach @strawberry.mutation, @require_founder(), try/except ApplicationError, or the payload pattern. Instead: one new syntax detail (import ... as ...), and — this file has two separate, real bugs, one of which is a direct, satisfying payoff of something you flagged yourself two functions ago.
 
 # 1. What is it?
 
@@ -246,7 +251,7 @@ class RoleMutation:
 # from lrb.authorization.services.clone_role import clone_role
 # ...
 # @strawberry.mutation
-# @require_owner()
+# @require_founder()
 # def clone_role(
 #     self, info: strawberry.Info, input: CloneRoleInput
 # ) -> RoleMutationPayload:
@@ -273,7 +278,7 @@ class RoleMutation:
 
 # python
 # @strawberry.mutation
-# @require_owner()
+# @require_founder()
 # def bulk_assign_role(
 #     self, info: strawberry.Info, input: BulkAssignRoleInput
 # ) -> BulkAssignRoleInput:          # <-- look closely
@@ -298,7 +303,7 @@ class RoleMutation:
 
 # python
 # @strawberry.mutation
-# @require_owner()
+# @require_founder()
 # def set_permission_override(
 #     self, info: strawberry.Info, input: SetPermissionOverrideInput
 # ) -> AssignmentMutationPayload:
@@ -316,7 +321,7 @@ class RoleMutation:
 
 # Now connect this directly back to what you flagged yourself, two files ago, reading set_permission_override (the service) and clear_permission_override (the service): you noticed both services accept no company_id and have no scoping check, and you specifically wrote "worth tracing this function's actual callers to confirm the company check happens somewhere before this runs — never assume it does just because the function is named sensibly."
 
-# You now have the answer, and it's bad news: the company check does not happen anywhere. The resolver never fetches current at all, so there's no current.company_id available even if the service did accept one. Combined with @require_owner() (which — as you reasoned back in your very first file — checks that the caller has owner-level permission, but says nothing about which company they're an owner of, if your data model allows an owner to belong to exactly one company, this might be a non-issue in practice, but it's still worth being certain about, not assumed), this means: any authenticated owner-level user, from any company, can call setPermissionOverride with an arbitrary user_id and grant or revoke any permission for a user belonging to a completely different company. This is a real, serious, exploitable gap — precisely the kind of thing your own earlier instinct to "trace the caller" was built to catch, and tracing it just confirmed the worst case.
+# You now have the answer, and it's bad news: the company check does not happen anywhere. The resolver never fetches current at all, so there's no current.company_id available even if the service did accept one. Combined with @require_founder() (which — as you reasoned back in your very first file — checks that the caller has owner-level permission, but says nothing about which company they're an owner of, if your data model allows an owner to belong to exactly one company, this might be a non-issue in practice, but it's still worth being certain about, not assumed), this means: any authenticated owner-level user, from any company, can call setPermissionOverride with an arbitrary user_id and grant or revoke any permission for a user belonging to a completely different company. This is a real, serious, exploitable gap — precisely the kind of thing your own earlier instinct to "trace the caller" was built to catch, and tracing it just confirmed the worst case.
 
 # The fix would need two things: fetch current (for consistency, and to actually have something to scope with), and — more importantly — the underlying services (set_permission_override, clear_permission_override) would need to be updated to accept and check company_id, matching the pattern every other scoped service in this project already follows (get_role, assign_role, remove_role, delete_role). The resolver fix alone isn't enough; the gap runs all the way down to the service layer, which is exactly what you predicted when you first read those two files.
 

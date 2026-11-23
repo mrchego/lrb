@@ -50,7 +50,7 @@ def bulk_unlock_users(*, user_ids: Iterable[str], company_id: str) -> BulkAction
 # from lrb.accounts.selectors.get_users_by_ids import get_users_by_ids
 # from lrb.core.services.bulk_result import BulkActionResult
 
-# Nothing genuinely new here — Iterable (a collection you can loop over, same as count_active_superusers's exclude_ids), transaction for the atomic decorator, get_users_by_ids via direct submodule import (matching your established convention), and BulkActionResult — the accumulator class you just built, imported from lrb.core.services.bulk_result. That import path itself is informative: BulkActionResult lives in core, not accounts — meaning it's meant to be a generic reusable accumulator for any bulk action across the whole project (bulk role changes, bulk deletions elsewhere), not something tied specifically to user accounts.
+# Nothing genuinely new here — Iterable (a collection you can loop over, same as count_active_founders's exclude_ids), transaction for the atomic decorator, get_users_by_ids via direct submodule import (matching your established convention), and BulkActionResult — the accumulator class you just built, imported from lrb.core.services.bulk_result. That import path itself is informative: BulkActionResult lives in core, not accounts — meaning it's meant to be a generic reusable accumulator for any bulk action across the whole project (bulk role changes, bulk deletions elsewhere), not something tied specifically to user accounts.
 
 # 3. Signature — every symbol explained
 # python
@@ -81,7 +81,7 @@ def bulk_unlock_users(*, user_ids: Iterable[str], company_id: str) -> BulkAction
 # python
 # user_ids = [str(uid) for uid in user_ids]
 
-# This is a list comprehension — a compact way of writing "build a new list by transforming each item in an existing collection." Read it as: for each uid found while looping over user_ids, put str(uid) into the new list. This normalizes every ID to a plain string, in case the caller passed something else (integers, UUID objects) — the same defensive str(...) conversion habit you applied yourself in assert_not_last_owner's call sites.
+# This is a list comprehension — a compact way of writing "build a new list by transforming each item in an existing collection." Read it as: for each uid found while looping over user_ids, put str(uid) into the new list. This normalizes every ID to a plain string, in case the caller passed something else (integers, UUID objects) — the same defensive str(...) conversion habit you applied yourself in assert_not_last_founder's call sites.
 
 # Worth flagging as a naming habit, not a bug: the result is stored back into a variable named user_ids — the same name as the original parameter. This is legal and common, but means the original, un-normalized user_ids the caller passed in no longer exists anywhere after this line; only the normalized version remains. It works fine here because nothing downstream needs the original, but it's worth being conscious of: reusing a parameter's name for a transformed version of itself can make debugging harder later ("wait, is this the original or the normalized one?") if the function grows more complex.
 
