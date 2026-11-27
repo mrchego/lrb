@@ -199,18 +199,21 @@ class StaffMutation:
     ) -> InvitationMutationPayload:
         current = get_current_user_or_raise(info)
         try:
-            role = Role.objects.filter(
-                pk=input.role_id, company=str(current.company_id)
-            ).first()
-            if not role:
-                raise ApplicationError(
-                    message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND
-                )
+            role = None
+            if input.role_id:
+                role = Role.objects.filter(
+                    pk=input.role_id, company=str(current.company_id)
+                ).first()
+                if not role:
+                    raise ApplicationError(
+                        message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND
+                    )
 
             _, invitation = promote_staff_to_login_action(
                 user_id=input.user_id,
                 company=current.company,
                 role=role,
+                permission_codenames=input.permission_codenames,
                 invited_by=current,
                 request=info.context.request,
             )

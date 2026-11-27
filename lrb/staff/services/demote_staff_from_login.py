@@ -1,7 +1,7 @@
 from django.db import transaction
 
 from lrb.accounts.selectors.get_user import get_user
-from lrb.authorization.models.user_role import UserRole
+from lrb.authorization.models.user_role import UserRole, UserPermissionOverride
 from lrb.authorization.selectors.get_user_permissions import (
     invalidate_user_permissions_cache,
 )
@@ -19,6 +19,7 @@ def demote_staff_from_login(*, user_id, company_id):
             message="Staff member not found.", code=ErrorCode.USER_NOT_FOUND
         )
     UserRole.objects.filter(user=user).delete()
+    UserPermissionOverride.objects.filter(user=user).delete()  
     user.can_login = False
     user.save(update_fields=["can_login"])
     invalidate_user_permissions_cache(user_id=user.id)

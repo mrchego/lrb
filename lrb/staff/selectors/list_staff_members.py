@@ -1,9 +1,9 @@
 from typing import Optional
 
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch
 
 from lrb.accounts.models import User
-from lrb.authorization.models.user_role import UserRole
+from lrb.authorization.models.user_role import UserPermissionOverride, UserRole
 from lrb.core.pagination import paginate_queryset
 
 
@@ -14,13 +14,18 @@ def list_staff_members(
     limit: Optional[int] = None,
     offset: int = 0,
 ):
-    staff_ids = UserRole.objects.filter(user__company_id=company_id).values_list(
-        "user_id", flat=True
+    # A staff member is anyone who has access through EITHER route:
+    #   1. at least one role, or
+    #   2. at least one directly granted permission (no role needed).
+    has_role = UserRole.objects.filter(user_id=OuterRef("pk"))
+    has_direct_grant = UserPermissionOverride.objects.filter(
+        user_id=OuterRef("pk"), is_granted=True
     )
 
     qs = (
         User.objects.select_related("company")
-        .filter(id__in=staff_ids, company_id=company_id)
+        .filter(company_id=company_id)
+        .filter(Exists(has_role) | Exists(has_direct_grant))
         .prefetch_related(
             Prefetch(
                 "user_roles",

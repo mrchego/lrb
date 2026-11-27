@@ -1,6 +1,6 @@
 from django.db import transaction
 
-from lrb.authorization.models.user_role import UserRole
+from lrb.authorization.models.user_role import UserRole, UserPermissionOverride
 from lrb.authorization.selectors.get_user_permissions import (
     invalidate_user_permissions_cache,
 )
@@ -23,6 +23,7 @@ def cancel_invitation(*, invitation) -> None:
             user.delete()  # cascades to UserRole
         else:
             UserRole.objects.filter(user=user).delete()
+            UserPermissionOverride.objects.filter(user=user).delete()
         transaction.on_commit(lambda: invalidate_user_permissions_cache(user_id=user_id))
 
     invitation.delete()

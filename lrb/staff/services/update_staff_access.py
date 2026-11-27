@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
 from django.db import transaction
 
@@ -14,7 +14,7 @@ def update_staff_access(
     *,
     user_id: str,
     company_id: str,
-    role_id: str,
+    role_id: Optional[str] = None,
     permission_codenames: Iterable[str],
 ):
     """Change a staff member's role AND their exact permission set in one step."""
@@ -34,14 +34,27 @@ def update_staff_access(
             code=ErrorCode.BUSINESS_RULE,
         )
 
-    role = get_role(role_id=role_id, company_id=company_id)
-    if role is None:
-        raise ApplicationError(message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND)
+    permission_codenames = list(permission_codenames)
 
-    # One role per staff member through this screen: drop any other roles,
-    # keep (or create) the chosen one.
-    UserRole.objects.filter(user=user).exclude(role=role).delete()
-    UserRole.objects.get_or_create(user=user, role=role)
+    if role_id is None:
+        # Direct-permissions mode: no role at all. Require at least one
+        # permission, otherwise the person could log in and do nothing.
+        if not permission_codenames:
+            raise ApplicationError(
+                message="Choose a role or tick at least one permission.",
+                code=ErrorCode.VALIDATION_ERROR,
+            )
+        UserRole.objects.filter(user=user).delete()
+    else:
+        role = get_role(role_id=role_id, company_id=company_id)
+        if role is None:
+            raise ApplicationError(
+                message="Role not found.", code=ErrorCode.ROLE_NOT_FOUND
+            )
+        # One role per staff member through this screen: drop any other
+        # roles, keep (or create) the chosen one.
+        UserRole.objects.filter(user=user).exclude(role=role).delete()
+        UserRole.objects.get_or_create(user=user, role=role)
 
     set_user_permissions(
         user_id=user.id,

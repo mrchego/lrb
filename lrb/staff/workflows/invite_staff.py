@@ -31,9 +31,12 @@ def invite_staff(
             message="This email address cannot be invited.",
             code=ErrorCode.USER_ALREADY_EXISTS,
         )
-    if can_login and role is None:
+    permission_codenames = (
+        list(permission_codenames) if permission_codenames is not None else None
+    )
+    if can_login and role is None and not permission_codenames:
         raise ApplicationError(
-            message="A role is required to grant login access.",
+            message="Choose a role or tick at least one permission to grant login access.",
             code=ErrorCode.VALIDATION_ERROR,
         )
     if role is not None and role.company_id != company.id:
@@ -56,7 +59,10 @@ def invite_staff(
 
     invitation = None
     if can_login:
-        UserRole.objects.create(user=user, role=role)
+        # Role is optional now: with no role, every ticked permission is stored
+        # directly on the user (a grant override against an empty baseline).
+        if role is not None:
+            UserRole.objects.create(user=user, role=role)
         # None  -> user simply gets the role's permissions (old behaviour).
         # list  -> the exact ticked set; differences from the role become overrides.
         if permission_codenames is not None:
@@ -75,7 +81,6 @@ def invite_staff(
         )
         send_invitation_email(request=request, invitation=invitation)
     return user, invitation
-
 
 # Yes — you have the right idea. The important thing is that None is the initial value, and later the variable can be reassigned to an actual Invitation object.
 
